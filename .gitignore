@@ -1,0 +1,39 @@
+# Root-level safety net — each component (backend/, agent/, sdk/, microfinance/)
+# also has its own .gitignore, but these patterns apply repo-wide as a backstop
+# so a secret or local artifact in a new/forgotten location never slips through.
+
+# Secrets — never commit real credentials, regardless of where the file lives.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Local dev databases (SQLite dev-mode defaults, never committed data).
+*.db
+*.db-journal
+
+# Node (future frontend, Phase F).
+node_modules/
+
+# Agent local state / generated certs.
+agent/state/
+**/certs/
+
+# OS/editor noise.
+.DS_Store
+Thumbs.db
+*.swp
+
+# Claude Code local session/project state — machine/session-specific, not
+# meant to be shared via the repo unless you decide otherwise.
+.claude/

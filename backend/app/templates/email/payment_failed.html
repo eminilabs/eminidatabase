@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block title %}Payment failed{% endblock %}
+{% block content %}
+<h1 style="font-size:18px;margin:0 0 16px;">Payment attempt failed</h1>
+<p style="margin:0;">Your payment of <strong>{{ amount }} {{ currency }}</strong> via
+{{ provider }} did not go through. Please retry from your billing dashboard.</p>
+{% endblock %}

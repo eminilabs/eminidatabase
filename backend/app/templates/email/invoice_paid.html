@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block title %}Payment received{% endblock %}
+{% block content %}
+<h1 style="font-size:18px;margin:0 0 16px;">Payment received</h1>
+<p style="margin:0;">We've received your payment of <strong>{{ amount }} {{ currency }}</strong>
+via {{ provider }}. Your invoice is now marked as paid. Thank you.</p>
+{% endblock %}

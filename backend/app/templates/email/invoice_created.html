@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block title %}New invoice{% endblock %}
+{% block content %}
+<h1 style="font-size:18px;margin:0 0 16px;">A new invoice is ready</h1>
+<p style="margin:0 0 12px;">A new invoice of <strong>{{ amount }} {{ currency }}</strong> has been
+generated for your organization for the billing period ending {{ period_end }}.</p>
+<p style="margin:0;">Pay it by bank transfer, crypto, or mobile money from your billing dashboard.</p>
+{% endblock %}

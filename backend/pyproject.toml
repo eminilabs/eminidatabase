@@ -1,0 +1,20 @@
+[project]
+name = "eminidatabase-control-plane"
+version = "0.1.0"
+description = "Control Plane API — Cloud Database Platform (Phase 1)"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+# B008: FastAPI's Depends() dependency injection is idiomatically used as a
+# default argument value — not the antipattern this rule targets.
+ignore = ["B008"]

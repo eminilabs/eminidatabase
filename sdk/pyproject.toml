@@ -1,0 +1,34 @@
+[project]
+name = "eminidatabase-sdk"
+version = "0.1.0"
+description = "Official Python SDK and CLI for the eminidatabase Cloud Database Platform"
+requires-python = ">=3.12"
+dependencies = [
+    "httpx>=0.27",
+    "typer>=0.15",
+]
+
+[project.scripts]
+platform = "eminidatabase_sdk.cli:main"
+
+[tool.setuptools]
+# Without this, setuptools' flat-layout auto-discovery also picks up certs/ (dev-
+# only mTLS material left over from local agent testing, not a Python package) and
+# refuses to build. Scoping to the actual package avoids that ambiguity.
+packages = ["eminidatabase_sdk"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+# B008: Typer's Option()/Argument() as a default value is the idiomatic pattern
+# (same reasoning as FastAPI's Depends() in the backend), not the antipattern
+# this rule targets.
+ignore = ["B008"]
