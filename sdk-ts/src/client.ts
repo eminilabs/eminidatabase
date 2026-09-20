@@ -23,6 +23,33 @@ export type IsolationLevel = components["schemas"]["IsolationLevel"];
 export type JobResponse = components["schemas"]["JobResponse"];
 export type NotificationResponse = components["schemas"]["NotificationResponse"];
 export type RegionResponse = components["schemas"]["RegionResponse"];
+export type DatabaseConnectionResponse = components["schemas"]["DatabaseConnectionResponse"];
+export type DatabaseMetricsResponse = components["schemas"]["DatabaseMetricsResponse"];
+export type TableInfo = components["schemas"]["TableInfo"];
+export type ExtensionResponse = components["schemas"]["ExtensionResponse"];
+export type CredentialScope = components["schemas"]["CredentialScope"];
+export type RoleResponse = components["schemas"]["RoleResponse"];
+export type RoleCreated = components["schemas"]["RoleCreated"];
+export type SqlExecuteResponse = components["schemas"]["SqlExecuteResponse"];
+export type QueryExecutionResponse = components["schemas"]["QueryExecutionResponse"];
+export type SavedQueryResponse = components["schemas"]["SavedQueryResponse"];
+export type BackupResponse = components["schemas"]["BackupResponse"];
+export type BackupCreateAccepted = components["schemas"]["BackupCreateAccepted"];
+export type RestoreAccepted = components["schemas"]["RestoreAccepted"];
+export type BackupPolicyUpdate = components["schemas"]["BackupPolicyUpdate"];
+export type PlanResponse = components["schemas"]["PlanResponse"];
+export type SubscriptionResponse = components["schemas"]["SubscriptionResponse"];
+export type UsageSummaryResponse = components["schemas"]["UsageSummaryResponse"];
+export type InvoiceResponse = components["schemas"]["InvoiceResponse"];
+export type InvoiceDetailResponse = components["schemas"]["InvoiceDetailResponse"];
+export type PaymentResponse = components["schemas"]["PaymentResponse"];
+export type WebhookResponse = components["schemas"]["WebhookResponse"];
+export type WebhookCreated = components["schemas"]["WebhookCreated"];
+export type WebhookDeliveryResponse = components["schemas"]["WebhookDeliveryResponse"];
+export type ApiKeyResponse = components["schemas"]["ApiKeyResponse"];
+export type ApiKeyCreated = components["schemas"]["ApiKeyCreated"];
+export type MembershipResponse = components["schemas"]["MembershipResponse"];
+export type MembershipRole = components["schemas"]["MembershipRole"];
 
 const DEFAULT_BASE_URL = "http://127.0.0.1:8000/api/v1";
 const TERMINAL_JOB_STATUSES = new Set(["succeeded", "failed"]);
@@ -214,5 +241,379 @@ export class PlatformClient {
 
   async markNotificationRead(notificationId: string): Promise<void> {
     return this.request("POST", `/notifications/${notificationId}/read`);
+  }
+
+  // --- Database ops: connection, metrics, tables, extensions -----------
+
+  async getConnection(
+    organizationId: string,
+    projectId: string,
+    databaseId: string
+  ): Promise<DatabaseConnectionResponse> {
+    return this.request("GET", this.dbPath(organizationId, projectId, databaseId) + "/connection");
+  }
+
+  async getDatabaseMetrics(
+    organizationId: string,
+    projectId: string,
+    databaseId: string
+  ): Promise<DatabaseMetricsResponse> {
+    return this.request("GET", this.dbPath(organizationId, projectId, databaseId) + "/metrics");
+  }
+
+  async listTables(
+    organizationId: string,
+    projectId: string,
+    databaseId: string
+  ): Promise<TableInfo[]> {
+    return this.request("GET", this.dbPath(organizationId, projectId, databaseId) + "/tables");
+  }
+
+  async listExtensions(
+    organizationId: string,
+    projectId: string,
+    databaseId: string
+  ): Promise<ExtensionResponse[]> {
+    return this.request("GET", this.dbPath(organizationId, projectId, databaseId) + "/extensions");
+  }
+
+  async installExtension(
+    organizationId: string,
+    projectId: string,
+    databaseId: string,
+    name: string
+  ): Promise<{ status: string; name: string }> {
+    return this.request(
+      "POST",
+      this.dbPath(organizationId, projectId, databaseId) + "/extensions",
+      { name }
+    );
+  }
+
+  async dropExtension(
+    organizationId: string,
+    projectId: string,
+    databaseId: string,
+    name: string
+  ): Promise<void> {
+    return this.request(
+      "DELETE",
+      this.dbPath(organizationId, projectId, databaseId) + `/extensions/${name}`
+    );
+  }
+
+  // --- Database roles -----------------------------------------------------
+
+  async createRole(
+    organizationId: string,
+    projectId: string,
+    databaseId: string,
+    name: string,
+    scope: CredentialScope = "app"
+  ): Promise<RoleCreated> {
+    return this.request(
+      "POST",
+      this.dbPath(organizationId, projectId, databaseId) + "/roles",
+      { name, scope }
+    );
+  }
+
+  async listRoles(
+    organizationId: string,
+    projectId: string,
+    databaseId: string
+  ): Promise<RoleResponse[]> {
+    return this.request("GET", this.dbPath(organizationId, projectId, databaseId) + "/roles");
+  }
+
+  async deleteRole(
+    organizationId: string,
+    projectId: string,
+    databaseId: string,
+    credentialId: string
+  ): Promise<void> {
+    return this.request(
+      "DELETE",
+      this.dbPath(organizationId, projectId, databaseId) + `/roles/${credentialId}`
+    );
+  }
+
+  async rotateRole(
+    organizationId: string,
+    projectId: string,
+    databaseId: string,
+    credentialId: string
+  ): Promise<RoleCreated> {
+    return this.request(
+      "POST",
+      this.dbPath(organizationId, projectId, databaseId) + `/roles/${credentialId}/rotate`
+    );
+  }
+
+  // --- SQL Editor ------------------------------------------------------
+
+  async executeSql(
+    organizationId: string,
+    projectId: string,
+    databaseId: string,
+    query: string,
+    roleId?: string
+  ): Promise<SqlExecuteResponse> {
+    return this.request(
+      "POST",
+      this.dbPath(organizationId, projectId, databaseId) + "/sql/execute",
+      { query, role_id: roleId ?? null }
+    );
+  }
+
+  async getSqlHistory(
+    organizationId: string,
+    projectId: string,
+    databaseId: string,
+    limit = 50
+  ): Promise<QueryExecutionResponse[]> {
+    return this.request(
+      "GET",
+      this.dbPath(organizationId, projectId, databaseId) + `/sql/history?limit=${limit}`
+    );
+  }
+
+  async createSavedQuery(
+    organizationId: string,
+    projectId: string,
+    databaseId: string,
+    name: string,
+    query: string
+  ): Promise<SavedQueryResponse> {
+    return this.request(
+      "POST",
+      this.dbPath(organizationId, projectId, databaseId) + "/sql/saved-queries",
+      { name, query }
+    );
+  }
+
+  async listSavedQueries(
+    organizationId: string,
+    projectId: string,
+    databaseId: string
+  ): Promise<SavedQueryResponse[]> {
+    return this.request(
+      "GET",
+      this.dbPath(organizationId, projectId, databaseId) + "/sql/saved-queries"
+    );
+  }
+
+  async deleteSavedQuery(
+    organizationId: string,
+    projectId: string,
+    databaseId: string,
+    savedQueryId: string
+  ): Promise<void> {
+    return this.request(
+      "DELETE",
+      this.dbPath(organizationId, projectId, databaseId) + `/sql/saved-queries/${savedQueryId}`
+    );
+  }
+
+  // --- Backups ------------------------------------------------------
+
+  async createBackup(
+    organizationId: string,
+    projectId: string,
+    databaseId: string
+  ): Promise<BackupCreateAccepted> {
+    return this.request("POST", this.dbPath(organizationId, projectId, databaseId) + "/backups");
+  }
+
+  async listBackups(
+    organizationId: string,
+    projectId: string,
+    databaseId: string
+  ): Promise<BackupResponse[]> {
+    return this.request("GET", this.dbPath(organizationId, projectId, databaseId) + "/backups");
+  }
+
+  async getBackup(
+    organizationId: string,
+    projectId: string,
+    databaseId: string,
+    backupId: string
+  ): Promise<BackupResponse> {
+    return this.request(
+      "GET",
+      this.dbPath(organizationId, projectId, databaseId) + `/backups/${backupId}`
+    );
+  }
+
+  async restoreBackup(
+    organizationId: string,
+    projectId: string,
+    databaseId: string,
+    backupId: string,
+    newName: string
+  ): Promise<RestoreAccepted> {
+    return this.request(
+      "POST",
+      this.dbPath(organizationId, projectId, databaseId) + `/backups/${backupId}/restore`,
+      { name: newName }
+    );
+  }
+
+  async getBackupPolicy(
+    organizationId: string,
+    projectId: string,
+    databaseId: string
+  ): Promise<BackupPolicyUpdate> {
+    return this.request(
+      "GET",
+      this.dbPath(organizationId, projectId, databaseId) + "/backup-policy"
+    );
+  }
+
+  async setBackupPolicy(
+    organizationId: string,
+    projectId: string,
+    databaseId: string,
+    policy: BackupPolicyUpdate
+  ): Promise<BackupPolicyUpdate> {
+    return this.request(
+      "PUT",
+      this.dbPath(organizationId, projectId, databaseId) + "/backup-policy",
+      policy
+    );
+  }
+
+  // --- Billing ------------------------------------------------------
+
+  async listPlans(): Promise<PlanResponse[]> {
+    return this.request("GET", "/plans");
+  }
+
+  async getSubscription(organizationId: string): Promise<SubscriptionResponse> {
+    return this.request("GET", `/organizations/${organizationId}/subscription`);
+  }
+
+  async updateSubscription(organizationId: string, planId: string): Promise<SubscriptionResponse> {
+    return this.request("PATCH", `/organizations/${organizationId}/subscription`, {
+      plan_id: planId,
+    });
+  }
+
+  async getUsage(organizationId: string): Promise<UsageSummaryResponse> {
+    return this.request("GET", `/organizations/${organizationId}/usage`);
+  }
+
+  async listInvoices(organizationId: string): Promise<InvoiceResponse[]> {
+    return this.request("GET", `/organizations/${organizationId}/invoices`);
+  }
+
+  async getInvoice(organizationId: string, invoiceId: string): Promise<InvoiceDetailResponse> {
+    return this.request("GET", `/organizations/${organizationId}/invoices/${invoiceId}`);
+  }
+
+  async payInvoiceManually(organizationId: string, invoiceId: string): Promise<InvoiceResponse> {
+    return this.request("POST", `/organizations/${organizationId}/invoices/${invoiceId}/pay`);
+  }
+
+  async payInvoiceWithCrypto(
+    organizationId: string,
+    invoiceId: string,
+    payCurrency?: string
+  ): Promise<PaymentResponse> {
+    return this.request(
+      "POST",
+      `/organizations/${organizationId}/invoices/${invoiceId}/pay/crypto`,
+      { pay_currency: payCurrency }
+    );
+  }
+
+  async payInvoiceWithMobileMoney(
+    organizationId: string,
+    invoiceId: string,
+    mode: string,
+    phoneNumber: string
+  ): Promise<PaymentResponse> {
+    return this.request(
+      "POST",
+      `/organizations/${organizationId}/invoices/${invoiceId}/pay/mobile-money`,
+      { mode, phone_number: phoneNumber }
+    );
+  }
+
+  async listInvoicePayments(organizationId: string, invoiceId: string): Promise<PaymentResponse[]> {
+    return this.request(
+      "GET",
+      `/organizations/${organizationId}/invoices/${invoiceId}/payments`
+    );
+  }
+
+  // --- Webhooks -----------------------------------------------------
+
+  async createWebhook(
+    organizationId: string,
+    url: string,
+    eventTypes: string[]
+  ): Promise<WebhookCreated> {
+    return this.request("POST", `/organizations/${organizationId}/webhooks`, {
+      url,
+      event_types: eventTypes,
+    });
+  }
+
+  async listWebhooks(organizationId: string): Promise<WebhookResponse[]> {
+    return this.request("GET", `/organizations/${organizationId}/webhooks`);
+  }
+
+  async deleteWebhook(organizationId: string, webhookId: string): Promise<void> {
+    return this.request("DELETE", `/organizations/${organizationId}/webhooks/${webhookId}`);
+  }
+
+  async listWebhookDeliveries(
+    organizationId: string,
+    webhookId: string
+  ): Promise<WebhookDeliveryResponse[]> {
+    return this.request(
+      "GET",
+      `/organizations/${organizationId}/webhooks/${webhookId}/deliveries`
+    );
+  }
+
+  // --- API keys -----------------------------------------------------
+
+  async createApiKey(
+    organizationId: string,
+    name: string,
+    scopes: string[] = []
+  ): Promise<ApiKeyCreated> {
+    return this.request("POST", `/organizations/${organizationId}/api-keys`, { name, scopes });
+  }
+
+  async listApiKeys(organizationId: string): Promise<ApiKeyResponse[]> {
+    return this.request("GET", `/organizations/${organizationId}/api-keys`);
+  }
+
+  async revokeApiKey(organizationId: string, apiKeyId: string): Promise<void> {
+    return this.request("DELETE", `/organizations/${organizationId}/api-keys/${apiKeyId}`);
+  }
+
+  // --- Members ------------------------------------------------------
+
+  async listMembers(organizationId: string): Promise<MembershipResponse[]> {
+    return this.request("GET", `/organizations/${organizationId}/members`);
+  }
+
+  async addMember(
+    organizationId: string,
+    email: string,
+    role: MembershipRole = "developer"
+  ): Promise<MembershipResponse> {
+    return this.request("POST", `/organizations/${organizationId}/members`, { email, role });
+  }
+
+  async removeMember(organizationId: string, targetUserId: string): Promise<void> {
+    return this.request(
+      "DELETE",
+      `/organizations/${organizationId}/members/${targetUserId}`
+    );
   }
 }

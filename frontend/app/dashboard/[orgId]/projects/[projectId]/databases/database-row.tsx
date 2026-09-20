@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import Link from "next/link";
 
 import type { DatabaseResponse } from "@eminidatabase/sdk";
 import { Card, CardContent } from "@/components/ui/card";
@@ -42,23 +43,25 @@ export function DatabaseRow({
   const status = database?.status ?? initialDatabase.status;
 
   return (
-    <Card>
-      <CardContent className="flex items-center justify-between py-4">
-        <div>
-          <p className="font-medium text-slate-900">{database?.name ?? initialDatabase.name}</p>
-          <p className="text-sm text-slate-500">
-            {database?.cpu_limit ?? initialDatabase.cpu_limit} vCPU ·{" "}
-            {database?.storage_limit_gb ?? initialDatabase.storage_limit_gb} GB
-          </p>
-        </div>
-        <span
-          className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-            STATUS_STYLES[status] ?? "bg-slate-100 text-slate-700"
-          }`}
-        >
-          {status}
-        </span>
-      </CardContent>
-    </Card>
+    <Link href={`/dashboard/${organizationId}/projects/${projectId}/databases/${initialDatabase.id}`}>
+      <Card className="transition-shadow hover:shadow-md">
+        <CardContent className="flex items-center justify-between py-4">
+          <div>
+            <p className="font-medium text-slate-900">{database?.name ?? initialDatabase.name}</p>
+            <p className="text-sm text-slate-500">
+              {database?.cpu_limit ?? initialDatabase.cpu_limit} vCPU ·{" "}
+              {database?.storage_limit_gb ?? initialDatabase.storage_limit_gb} GB
+            </p>
+          </div>
+          <span
+            className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+              STATUS_STYLES[status] ?? "bg-slate-100 text-slate-700"
+            }`}
+          >
+            {status}
+          </span>
+        </CardContent>
+      </Card>
+    </Link>
   );
 }
