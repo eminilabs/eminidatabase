@@ -22,8 +22,12 @@ venv/
 *.db
 *.db-journal
 
-# Node (future frontend, Phase F).
+# Node (frontend/, sdk-ts/).
 node_modules/
+.next/
+dist/
+test-results/
+playwright-report/
 
 # Agent local state / generated certs.
 agent/state/

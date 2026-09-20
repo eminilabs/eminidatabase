@@ -743,6 +743,88 @@ de phase pour le détail live.
   base → voir son statut RUNNING et sa chaîne de connexion) uniquement depuis le
   dashboard, sans jamais appeler l'API directement.
 
+### Phase F.1 — Fondations : SDK TypeScript, auth complète, coquille du dashboard — ✅ implémentée (2026-09-20)
+
+Premier morceau vertical de la Phase F, pas le périmètre complet d'un coup (décision
+utilisateur explicite) : suffisant pour prouver le parcours critique de bout en bout,
+le reste (SQL Editor, monitoring, billing UI, backups UI, webhooks UI...) est
+délibérément différé à de futures sous-phases F.2+.
+
+- **`sdk-ts/`** — nouveau package top-level, miroir TypeScript de `sdk/` (Python) :
+  mêmes principes (wrapper fin par endpoint, aucune logique métier côté client, un
+  seul point d'entrée pour les headers d'auth et la normalisation d'erreurs). Types
+  générés depuis le schéma OpenAPI réel du backend (`openapi-typescript`,
+  `npm run generate`) plutôt que dupliqués à la main — un changement de schéma
+  backend redevient une erreur de type, pas une dérive silencieuse. Seuls les
+  endpoints réellement consommés par cette sous-phase ont une méthode wrapper (auth,
+  organizations, projects, databases, jobs, regions, notifications) ; les types des
+  autres groupes sont déjà générés et prêts, les wrappers arriveront avec les pages
+  qui en ont besoin — même croissance incrémentale que le SDK Python phase par phase.
+- **`frontend/`** — Next.js 16 (App Router, Turbopack), Tailwind + primitives UI
+  maison (style shadcn), TanStack Query. **Changement de comportement backend
+  nécessaire et fait ici** : `GET /auth/oauth/{provider}/callback`
+  (`backend/app/api/v1/endpoints/auth.py`) ne renvoie plus le token en JSON — il
+  redirige vers le frontend, token dans un **fragment** d'URL (`#access_token=...`,
+  jamais transmis à aucun serveur) en cas de succès, `?error=` sinon. C'était le
+  changement explicitement anticipé dans le doc [04 §4.8](04-securite-et-isolation.md#48-oauth-sign-upsign-in-google-github--2026-09-20)
+  au moment de construire l'OAuth backend seul.
+- **Session** : JWT dans un cookie httpOnly posé par le frontend (Server Actions /
+  Route Handlers Next.js agissant en BFF) — jamais exposé à du JS côté navigateur.
+  Décision utilisateur explicite (vs `localStorage`), pour le niveau de rigueur
+  "propre/professionnel" demandé pour l'auth. `proxy.ts` (le fichier `middleware.ts`
+  est déprécié et renommé en Next.js 16 — vérifié dans la doc embarquée avant d'écrire
+  quoi que ce soit, cf. note ci-dessous) fait un contrôle optimiste (présence du
+  cookie seulement) ; le backend reste la seule vérité pour la validité réelle du JWT.
+- **Auth complète livrée** : inscription/connexion email+mot de passe, connexion
+  Google/GitHub (redirection réelle vers le fournisseur puis retour), activation MFA
+  avec QR code, connexion avec OTP. Un compte avec MFA activé est bloqué en
+  connexion OAuth (403 explicite, cf. doc 04 §4.8) — pas de contournement silencieux.
+- **Coquille dashboard** : création d'organisation, liste/création de projets,
+  liste/création de bases avec polling de statut (`pending`/`creating` → `running`)
+  via une route proxy Next.js dédiée (le cookie httpOnly empêchant le navigateur
+  d'appeler directement l'API FastAPI depuis du JS client), cloche de notifications
+  avec polling TanStack Query.
+- **Un vrai piège de version évité, pas deviné** : `create-next-app` a résolu
+  Next.js 16.3.5, une version postérieure aux données d'entraînement du modèle qui a
+  écrit ce code. Un fichier `AGENTS.md` généré automatiquement par Next.js dans
+  `frontend/` avertit explicitement de ce risque et pointe vers la doc embarquée
+  (`node_modules/next/dist/docs/`) — lue avant d'écrire le moindre fichier
+  d'authentification. A évité d'écrire un `middleware.ts` (déprécié, renommé
+  `proxy.ts` avec export `proxy` au lieu de `middleware`) et a confirmé le pattern
+  "callback URL" documenté par Next lui-même pour la case OAuth.
+- **Deux vrais bugs trouvés par les tests e2e Playwright réels, aucun par simple
+  relecture de code** :
+  1. Le flux `/auth/callback` (lecture du fragment `#access_token=`, échange contre
+     un cookie) échouait systématiquement en mode `next dev` — Turbopack compile les
+     routes à la demande, et la toute première requête vers une route encore jamais
+     compilée peut prendre plusieurs secondes, largement au-delà du timeout par
+     défaut de Playwright (5s) avant que l'hydratation client ne s'exécute. Confirmé
+     en ajoutant un marqueur de debug visible dans le DOM. Next.js documente
+     lui-même la recommandation de tester contre un build de production
+     (`next build && next start`) plutôt qu'en dev — appliqué, les 5 tests e2e
+     passent de façon fiable une fois cette bascule faite.
+  2. Un vrai crash serveur (500) sur `POST /auth/register` pendant une session de
+     test — pas un bug de code : Docker Desktop s'était arrêté entre-temps (incident
+     d'environnement, pas applicatif), tuant la connexion Postgres du backend.
+     Redémarré, le conteneur `eminidb-controlplane-postgres` a retrouvé toutes ses
+     données intactes (volume nommé, cf. correctif de la section paiements/
+     notifications plus haut) — preuve concrète que ce correctif fonctionne comme
+     prévu, pas seulement en théorie.
+- **Tests** : `sdk-ts` (Vitest, 4 tests, `fetch` mocké) + `frontend` e2e (Playwright,
+  5 tests, contre un vrai backend + une vraie base Postgres) : inscription → aucune
+  organisation → création d'organisation → création de projet → liste de bases
+  vide ; déconnexion puis reconnexion ; redirection `/dashboard` → `/login` si non
+  connecté ; le hand-off `/auth/callback` avec un vrai token émis par le backend ;
+  affichage d'une erreur OAuth sans l'avaler silencieusement. Limite assumée et
+  documentée, pas contournée : le clic réel sur un écran de consentement Google/
+  GitHub ne peut pas être automatisé dans cet environnement (même raisonnement que
+  l'approbation manuelle FedaPay) — nécessite un humain, une fois de vrais
+  identifiants d'app OAuth créés après la mise en ligne d'un VPS.
+- **Différé à une prochaine sous-phase** : SQL Editor, backups/restore UI, billing/
+  factures UI, gestion des webhooks UI, monitoring/métriques/alertes, gestion des
+  clés API, gestion des membres — les types TypeScript existent déjà (générés),
+  seules les pages et méthodes wrapper restent à écrire.
+
 ## Phase 12 — AI Platform
 
 - **Périmètre** : cf. cahier des charges §75 — AI SQL Assistant, AI Analyst, RAG,

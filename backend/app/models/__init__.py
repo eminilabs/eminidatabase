@@ -14,6 +14,7 @@ from app.models.membership import Membership, MembershipRole
 from app.models.node import Node, NodeStatus
 from app.models.node_registration_token import NodeRegistrationToken
 from app.models.notification import NOTIFICATION_TYPES, Notification
+from app.models.oauth_account import OAuthAccount, OAuthProviderName
 from app.models.organization import Organization
 from app.models.payment import Payment, PaymentProviderName, PaymentStatus
 from app.models.plan import Plan
@@ -76,4 +77,6 @@ __all__ = [
     "PaymentStatus",
     "Notification",
     "NOTIFICATION_TYPES",
+    "OAuthAccount",
+    "OAuthProviderName",
 ]

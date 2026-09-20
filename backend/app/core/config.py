@@ -50,6 +50,19 @@ class Settings(BaseSettings):
     fedapay_secret_key: str = ""
     fedapay_webhook_secret: str = ""
 
+    # OAuth sign-up/sign-in (Google, GitHub) — cf. app/services/oauth_service.py.
+    # This API's own publicly reachable base URL, so the provider knows where to
+    # redirect back with the authorization code (self-referential, same pattern
+    # as nowpayments_public_api_url).
+    oauth_redirect_base_url: str = "http://localhost:8000"
+    # Where the OAuth callback hands the session off to once it succeeds/fails —
+    # the frontend's own origin, not this API's (cf. frontend/app/auth/callback).
+    frontend_oauth_redirect_url: str = "http://localhost:3000"
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    github_client_id: str = ""
+    github_client_secret: str = ""
+
 
 @lru_cache
 def get_settings() -> Settings:

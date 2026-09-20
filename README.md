@@ -31,6 +31,10 @@ Voir [docs/architecture/00-README.md](docs/architecture/00-README.md) pour :
   mTLS auprès du Control Plane, heartbeat, health/resources.
 - [sdk/](sdk/README.md) — SDK Python officiel et CLI (`platform`) pour un
   développeur tiers, construits entièrement au-dessus de l'API publique.
+- [sdk-ts/](sdk-ts/README.md) — SDK TypeScript officiel, miroir du SDK Python,
+  construit pour et consommé par `frontend/`.
+- [frontend/](frontend/README.md) — dashboard Next.js (Phase F.1 : auth complète +
+  coquille organizations/projects/databases ; périmètre complet encore à venir).
 - [microfinance/](microfinance/README.md) — application métier microfinance,
   elle-même **cliente** de la plateforme (dogfooding du SDK) plutôt qu'un
   composant de celle-ci.
@@ -162,11 +166,24 @@ Voir [docs/architecture/00-README.md](docs/architecture/00-README.md) pour :
   [docs/architecture/09-plan-de-phases.md](docs/architecture/09-plan-de-phases.md)
   et [05 §5.7](docs/architecture/05-backup-ha-scaling.md#57-rapport-de-test-des-scénarios-de-disaster-recovery-phase-11-2026-09-19)
   pour le rapport complet.
-- Prochaine étape : Phase F (Frontend/Dashboard) ou Phase 12 (IA), selon la
-  priorité du porteur de projet — l'intégralité du backend (Phases 1-11) est
-  désormais implémentée, testée et durcie. Le PITR (archivage WAL continu,
+- **Paiements réels, notifications, OAuth (2026-09-20)** : l'IA a été explicitement
+  reportée par le porteur de projet au profit de trois demandes concrètes —
+  passerelles de paiement réelles NOWPayments (crypto) et FedaPay (mobile money,
+  sans redirection) fermant l'abstraction `PaymentProvider` posée en Phase 10,
+  système de notification Resend (in-app + email) qui n'existait pas du tout avant,
+  et inscription/connexion Google/GitHub en plus du mot de passe. 122 tests backend
+  au total. Voir [08 §8.17](docs/architecture/08-microfinance-et-billing.md#817-passerelles-de-paiement-réelles-et-notifications-2026-09-19--implémentée)
+  et [04 §4.8](docs/architecture/04-securite-et-isolation.md#48-oauth-sign-upsign-in-google-github--2026-09-20).
+- **Phase F.1 (2026-09-20)** : premières lignes de code Next.js du projet — SDK
+  TypeScript ([sdk-ts/](sdk-ts/README.md), miroir 1:1 du SDK Python), et un
+  [frontend/](frontend/README.md) avec l'auth complète (mot de passe, Google,
+  GitHub, MFA) et une coquille de dashboard (organizations → projects → databases),
+  vérifiés par 5 tests e2e Playwright contre un vrai backend. Périmètre complet de
+  la Phase F (SQL Editor, billing UI, monitoring...) volontairement différé à des
+  sous-phases suivantes. Voir
+  [09 §Phase F.1](docs/architecture/09-plan-de-phases.md#phase-f1--fondations--sdk-typescript-auth-complète-coquille-du-dashboard--implémentée-2026-09-20).
+- Le PITR (archivage WAL continu,
   différé depuis la Phase 5), la récupération en libre-service d'une base
-  `FAILED` (gap identifié en Phase 7), l'intégration mobile money/Stripe réelles
-  (abstractions posées en Phases 9.4/10) et l'audit systématique de chaque refus
+  `FAILED` (gap identifié en Phase 7) et l'audit systématique de chaque refus
   RBAC (gap identifié en Phase 11) restent des pistes ouvertes documentées, pas
   oubliées.

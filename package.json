@@ -1,0 +1,8 @@
+{
+  "name": "eminidatabase-workspace",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "sdk-ts"
+  ]
+}

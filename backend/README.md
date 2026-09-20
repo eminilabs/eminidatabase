@@ -20,7 +20,10 @@ for the full report); real NOWPayments (crypto) and FedaPay (mobile money, no
 redirect) payment gateways closing the `PaymentProvider` abstraction, plus a
 Resend-backed notification system (welcome/invoice/payment/subscription emails)
 that didn't exist before (see
-[../docs/architecture/08-microfinance-et-billing.md §8.17](../docs/architecture/08-microfinance-et-billing.md#817-passerelles-de-paiement-réelles-et-notifications-2026-09-19--implémentée)).
+[../docs/architecture/08-microfinance-et-billing.md §8.17](../docs/architecture/08-microfinance-et-billing.md#817-passerelles-de-paiement-réelles-et-notifications-2026-09-19--implémentée));
+and Google/GitHub OAuth sign-up/sign-in alongside the original email+password flow
+(see
+[../docs/architecture/04-securite-et-isolation.md §4.8](../docs/architecture/04-securite-et-isolation.md#48-oauth-sign-upsign-in-google-github--2026-09-20)).
 See
 [../docs/architecture/](../docs/architecture/) for the full architecture and
 [../docs/architecture/09-plan-de-phases.md](../docs/architecture/09-plan-de-phases.md)

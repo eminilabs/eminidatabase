@@ -96,3 +96,53 @@ Mécanisme commun :
 Toute action sensible génère une ligne `AUDIT_LOGS` (cf. [02](02-modele-donnees.md))
 incluant l'acteur, l'action, la ressource, l'état avant/après, l'IP, le résultat. Le
 journal d'audit est en lecture seule pour tous les rôles sauf export contrôlé.
+
+## 4.8 OAuth sign-up/sign-in (Google, GitHub) — 2026-09-20
+
+Ferme la demande explicite d'inscription/connexion "propre" via Google et GitHub, en
+plus du couple email/mot de passe déjà existant depuis la Phase 1.
+
+- **REST direct via `httpx`, pas de SDK** (`app/services/oauth_providers/{google,
+  github}.py`) — même convention que NOWPayments/FedaPay/Resend : trois appels HTTP
+  bien documentés (authorize → token → userinfo) ne justifient pas une dépendance
+  `google-auth`/`authlib`.
+- **`OAuthAccount`** (`app/models/oauth_account.py`) — table séparée, pas des colonnes
+  sur `User` : un même utilisateur peut lier Google ET GitHub au même compte.
+  `UniqueConstraint(provider, provider_account_id)` sert de clé d'idempotence au
+  login, même schéma que `Payment.(provider, provider_payment_id)`.
+- **`User.password_hash` devient nullable** — un compte créé uniquement via OAuth n'a
+  jamais de mot de passe. `POST /auth/login` refuse proprement (401, pas de crash) une
+  tentative de connexion par mot de passe sur un tel compte.
+- **CSRF du paramètre `state`** : un JWT signé et de courte durée (600s), pas un stockage
+  de session côté serveur — cette API n'a pas de session store, et un jeton signé
+  stateless est déjà le mécanisme utilisé pour les tokens d'accès eux-mêmes. Le
+  `provider` est encodé dans le `state` et revérifié au callback : un `state` valide
+  pour `google` ne peut pas être rejoué sur le callback `github`.
+- **Email non vérifié par le fournisseur → rejeté (400)**, jamais de création/liaison
+  de compte sur cette base. Sans ça, n'importe qui pourrait s'approprier le compte
+  d'un tiers en enregistrant une app OAuth avec un email non vérifié identique.
+  GitHub expose cette info par email individuel (`/user/emails[].verified`, jamais
+  `/user.email` seul qui peut être `null` si privé) ; Google la donne directement
+  dans `email_verified`.
+- **Liaison par email vérifié** : si un compte avec cet email existe déjà (créé par
+  mot de passe ou par un autre provider), le nouveau lien OAuth s'y rattache au lieu
+  de créer un doublon — jamais l'inverse (un lien OAuth existant fait toujours
+  autorité en premier, avant toute recherche par email).
+- **Écart assumé, documenté, pas un contournement silencieux** : un compte avec MFA
+  (TOTP) activé ne peut PAS se connecter via OAuth — `POST /auth/oauth/{provider}/
+  callback` renvoie 403 explicitement plutôt que de laisser l'OAuth contourner le
+  second facteur que Google/GitHub ne connaissent pas. Fermer proprement cet écart
+  demanderait une UI pour une étape "entrez votre code OTP" après le retour OAuth,
+  ce qui n'a de sens qu'avec un frontend (Phase F) — jusque-là, ce compte doit encore
+  utiliser mot de passe + OTP.
+- **Pas de redirection vers un frontend au retour du callback** — aucun frontend
+  n'existe encore (séquencement backend-first) : `GET /auth/oauth/{provider}/
+  callback` renvoie directement le `TokenResponse` en JSON, exactement comme
+  `POST /auth/login`. Le futur frontend changera cette poignée de main (redirection
+  avec le token en paramètre, ou cookie de session), pas la logique de ce endpoint.
+- **Tests** : `backend/tests/test_oauth.py` (9 tests) — appels réseau vers Google/
+  GitHub mockés à la frontière du module `oauth_providers`, même pattern que les
+  paiements. Couvre : création de compte, liaison à un compte mot de passe existant
+  par email, email non vérifié rejeté, `state` invalide/expiré rejeté, `state` d'un
+  autre provider rejeté, compte MFA bloqué, et l'idempotence d'un second login avec
+  le même compte provider (pas de doublon `User`/`OAuthAccount`).

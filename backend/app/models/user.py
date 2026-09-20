@@ -16,7 +16,9 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "users"
 
     email: Mapped[str] = mapped_column(String(320), unique=True, index=True, nullable=False)
-    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    # Null for an account created via OAuth only (Google/GitHub) that never set a
+    # password — cf. app/services/oauth_service.py.
+    password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     mfa_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     mfa_secret: Mapped[str | None] = mapped_column(String(64), nullable=True)

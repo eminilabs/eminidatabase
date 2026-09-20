@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import datetime as dt
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.dependencies import get_current_user
 from app.core.security import (
     create_access_token,
@@ -25,6 +28,7 @@ from app.schemas.auth import (
     UserLogin,
     UserRegister,
 )
+from app.services import oauth_service
 from app.services.audit import record_audit
 from app.services.notification_service import notify_welcome
 
@@ -58,7 +62,11 @@ async def login(
     invalid_credentials = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password"
     )
-    if user is None or not verify_password(payload.password, user.password_hash):
+    if (
+        user is None
+        or user.password_hash is None
+        or not verify_password(payload.password, user.password_hash)
+    ):
         await record_audit(
             db,
             action="LOGIN_FAILED",
@@ -96,6 +104,62 @@ async def login(
     await db.commit()
 
     return TokenResponse(access_token=create_access_token(user.id))
+
+
+@router.get("/oauth/{provider}/login", response_model=None)
+async def oauth_login(provider: str) -> RedirectResponse:
+    """Redirects the browser to Google/GitHub's consent screen."""
+    return oauth_service.build_authorize_redirect(provider)
+
+
+@router.get("/oauth/{provider}/callback", response_model=None)
+async def oauth_callback(
+    provider: str,
+    code: str,
+    state: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> RedirectResponse:
+    """Hands the outcome off to the frontend rather than returning JSON — this is
+    a real browser navigation coming back from Google/GitHub, not an API call a
+    frontend script made itself. On success the token travels in a URL
+    *fragment* (`#access_token=...`), which browsers never send to any server
+    (not logged here, not visible to the frontend's own server-side rendering) —
+    only the client-side JS that reads `window.location.hash` on
+    frontend/app/auth/callback ever sees it. Failures carry a `?error=` query
+    param instead, since there's no token to protect in that case."""
+    frontend_base = get_settings().frontend_oauth_redirect_url
+
+    try:
+        user = await oauth_service.handle_callback(db, provider, code, state)
+    except oauth_service.OAuthLoginError as exc:
+        await db.rollback()
+        return RedirectResponse(f"{frontend_base}/auth/callback?error={quote(str(exc))}")
+
+    if user.mfa_enabled:
+        # This account's second factor is our own TOTP, which Google/GitHub have
+        # no notion of — an OAuth login alone cannot satisfy it. Documented gap,
+        # not a silent bypass: closing it properly needs the frontend to host a
+        # second "enter your OTP code" step, which frontend/app/auth/callback
+        # does not implement yet — for now the user is pointed back at
+        # password+OTP login instead.
+        await db.rollback()
+        message = "MFA is enabled on this account — sign in with your password and OTP code instead"
+        return RedirectResponse(f"{frontend_base}/auth/callback?error={quote(message)}")
+
+    user.last_login_at = dt.datetime.now(dt.UTC)
+    await record_audit(
+        db,
+        action="LOGIN_SUCCEEDED",
+        resource_type="user",
+        resource_id=user.id,
+        user_id=user.id,
+        ip_address=request.client.host if request.client else None,
+    )
+    await db.commit()
+
+    token = create_access_token(user.id)
+    return RedirectResponse(f"{frontend_base}/auth/callback#access_token={token}")
 
 
 @router.get("/me", response_model=MeResponse)
