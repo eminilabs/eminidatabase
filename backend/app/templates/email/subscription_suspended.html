@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block title %}Access suspended — unpaid invoice{% endblock %}
+{% block content %}
+<h1 style="font-size:18px;margin:0 0 16px;">Your organization's access has been suspended</h1>
+<p style="margin:0 0 12px;">Invoice <strong>{{ invoice_id }}</strong> for <strong>{{ amount }} {{ currency }}</strong>
+was never paid before your next billing period started. Database access is suspended until it's settled.</p>
+<p style="margin:0;">Pay the outstanding invoice from your billing dashboard to restore access immediately.</p>
+{% endblock %}

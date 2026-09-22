@@ -23,7 +23,7 @@ export function CreateRoleForm({
 
   if (state?.created) {
     return (
-      <Alert className="border-amber-200 bg-amber-50 text-amber-900">
+      <Alert className="border-amber-900 bg-amber-950/40 text-amber-300">
         Role <span className="font-mono">{state.created.roleName}</span> created. Password (shown
         once, copy it now): <span className="font-mono">{state.created.password}</span>
       </Alert>
@@ -46,7 +46,7 @@ export function CreateRoleForm({
         <select
           id="role-scope"
           name="scope"
-          className="flex h-10 w-32 rounded-md border border-slate-300 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+          className="flex h-10 w-32 rounded-md border border-slate-700 bg-slate-900 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
         >
           <option value="app">app</option>
           <option value="readonly">readonly</option>

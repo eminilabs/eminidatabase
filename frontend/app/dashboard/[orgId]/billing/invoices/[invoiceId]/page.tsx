@@ -1,5 +1,6 @@
+import { StatusBadge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getApiClient } from "@/lib/api-server";
+import { requireApiClient } from "@/lib/api-server";
 
 import { InvoiceStatus } from "./invoice-status";
 
@@ -9,7 +10,7 @@ export default async function InvoiceDetailPage({
   params: Promise<{ orgId: string; invoiceId: string }>;
 }) {
   const { orgId, invoiceId } = await params;
-  const client = await getApiClient();
+  const client = await requireApiClient();
   const [invoice, payments] = await Promise.all([
     client.getInvoice(orgId, invoiceId),
     client.listInvoicePayments(orgId, invoiceId),
@@ -18,7 +19,7 @@ export default async function InvoiceDetailPage({
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-slate-900">
+        <h1 className="text-xl font-semibold text-slate-100">
           Invoice {new Date(invoice.period_start).toLocaleDateString()} –{" "}
           {new Date(invoice.period_end).toLocaleDateString()}
         </h1>
@@ -32,11 +33,11 @@ export default async function InvoiceDetailPage({
           <CardTitle>Line items</CardTitle>
         </CardHeader>
         <CardContent>
-          <ul className="divide-y divide-slate-100 text-sm">
+          <ul className="divide-y divide-slate-800 text-sm">
             {invoice.line_items.map((item, i) => (
               <li key={i} className="flex items-center justify-between py-2">
-                <span className="text-slate-600">{item.description}</span>
-                <span className="font-medium text-slate-900">{item.amount}</span>
+                <span className="text-slate-500">{item.description}</span>
+                <span className="font-medium text-slate-100">{item.amount}</span>
               </li>
             ))}
           </ul>
@@ -58,11 +59,11 @@ export default async function InvoiceDetailPage({
             <CardTitle>Payment attempts</CardTitle>
           </CardHeader>
           <CardContent>
-            <ul className="divide-y divide-slate-100 text-sm">
+            <ul className="divide-y divide-slate-800 text-sm">
               {payments.map((payment) => (
                 <li key={payment.id} className="flex items-center justify-between py-2">
-                  <span className="text-slate-600">{payment.provider}</span>
-                  <span>{payment.status}</span>
+                  <span className="text-slate-500">{payment.provider}</span>
+                  <StatusBadge status={payment.status} />
                 </li>
               ))}
             </ul>

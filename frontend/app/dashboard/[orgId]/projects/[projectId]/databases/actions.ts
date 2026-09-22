@@ -2,6 +2,7 @@
 
 import { ApiError } from "@eminidatabase/sdk";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 import { getApiClient } from "@/lib/api-server";
 
@@ -29,4 +30,20 @@ export async function createDatabaseAction(
 
   revalidatePath(`/dashboard/${organizationId}/projects/${projectId}/databases`);
   return undefined;
+}
+
+export async function deleteDatabaseAction(
+  organizationId: string,
+  projectId: string,
+  databaseId: string
+): Promise<DatabaseFormState> {
+  const client = await getApiClient();
+  try {
+    await client.deleteDatabase(organizationId, projectId, databaseId);
+  } catch (err) {
+    if (err instanceof ApiError) return { error: err.detail };
+    return { error: "Something went wrong. Please try again." };
+  }
+  revalidatePath(`/dashboard/${organizationId}/projects/${projectId}/databases`);
+  redirect(`/dashboard/${organizationId}/projects/${projectId}/databases`);
 }

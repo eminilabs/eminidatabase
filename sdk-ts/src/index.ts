@@ -10,6 +10,7 @@ export type {
   DatabaseConnectionResponse,
   DatabaseCreateAccepted,
   DatabaseMetricsResponse,
+  DatabaseResize,
   DatabaseResponse,
   ExtensionResponse,
   InvoiceDetailResponse,

@@ -25,7 +25,7 @@ export function CreateWebhookForm({ organizationId }: { organizationId: string }
 
   if (state?.created) {
     return (
-      <Alert className="border-amber-200 bg-amber-50 text-amber-900">
+      <Alert className="border-amber-900 bg-amber-950/40 text-amber-300">
         Webhook for {state.created.url} created. Signing secret (shown once, copy it now):{" "}
         <span className="font-mono">{state.created.secret}</span>
       </Alert>

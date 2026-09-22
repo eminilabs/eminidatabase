@@ -5,6 +5,7 @@ import { useActionState, useState } from "react";
 
 import type { BackupResponse } from "@eminidatabase/sdk";
 import { Alert } from "@/components/ui/alert";
+import { StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -13,14 +14,6 @@ import { restoreBackupAction } from "./actions";
 
 const TERMINAL_STATUSES = new Set(["completed", "failed", "verified", "verification_failed"]);
 const RESTORABLE_STATUSES = new Set(["completed", "verified"]);
-
-const STATUS_STYLES: Record<string, string> = {
-  completed: "bg-green-100 text-green-800",
-  verified: "bg-green-100 text-green-800",
-  failed: "bg-red-100 text-red-800",
-  verification_failed: "bg-red-100 text-red-800",
-  pending: "bg-amber-100 text-amber-800",
-};
 
 function formatBytes(bytes: number | null): string {
   if (bytes === null) return "—";
@@ -69,21 +62,15 @@ export function BackupRow({
       <CardContent className="space-y-3 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-slate-900">
+            <p className="text-sm font-medium text-slate-100">
               {backup?.type ?? initialBackup.type} · {formatBytes(backup?.size_bytes ?? null)}
             </p>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-slate-500">
               {new Date(backup?.created_at ?? initialBackup.created_at).toLocaleString()}
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <span
-              className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                STATUS_STYLES[status] ?? "bg-slate-100 text-slate-700"
-              }`}
-            >
-              {status}
-            </span>
+            <StatusBadge status={status} />
             {RESTORABLE_STATUSES.has(status) && (
               <Button variant="outline" onClick={() => setShowRestore((v) => !v)}>
                 Restore
@@ -99,7 +86,16 @@ export function BackupRow({
                 <Alert>{state.error}</Alert>
               </div>
             )}
-            <Input name="name" placeholder="restored-database-name" required className="w-64" />
+            <Input
+              name="name"
+              placeholder="restored-database-name"
+              required
+              pattern="[a-z][a-z0-9\-]{1,62}"
+              minLength={2}
+              maxLength={63}
+              title="Start with a lowercase letter, then lowercase letters, numbers, or hyphens"
+              className="w-64"
+            />
             <Button type="submit" disabled={pending}>
               {pending ? "Restoring…" : "Restore to a new database"}
             </Button>

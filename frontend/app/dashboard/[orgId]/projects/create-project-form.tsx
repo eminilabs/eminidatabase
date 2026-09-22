@@ -26,10 +26,10 @@ export function CreateProjectForm({ organizationId }: { organizationId: string }
       </div>
       <div>
         <Label htmlFor="slug">Slug</Label>
-        <Input id="slug" name="slug" required placeholder="shop" pattern="[a-z0-9-]+" className="w-48" />
+        <Input id="slug" name="slug" required placeholder="shop" pattern="[a-z0-9\-]+" className="w-48" />
       </div>
       <Button type="submit" disabled={pending}>
-        {pending ? "Creating…" : "New project"}
+        {pending ? "Creating…" : "Create project"}
       </Button>
     </form>
   );

@@ -85,3 +85,59 @@ export async function rotateRoleAction(
   revalidatePath(dbBasePath(organizationId, projectId, databaseId));
   return { roleName: rotated.role_name, password: rotated.password };
 }
+
+export async function suspendDatabaseAction(
+  organizationId: string,
+  projectId: string,
+  databaseId: string
+): Promise<ActionState> {
+  const client = await getApiClient();
+  try {
+    await client.suspendDatabase(organizationId, projectId, databaseId);
+  } catch (err) {
+    if (err instanceof ApiError) return { error: err.detail };
+    return { error: "Something went wrong. Please try again." };
+  }
+  revalidatePath(dbBasePath(organizationId, projectId, databaseId));
+  return undefined;
+}
+
+export async function resumeDatabaseAction(
+  organizationId: string,
+  projectId: string,
+  databaseId: string
+): Promise<ActionState> {
+  const client = await getApiClient();
+  try {
+    await client.resumeDatabase(organizationId, projectId, databaseId);
+  } catch (err) {
+    if (err instanceof ApiError) return { error: err.detail };
+    return { error: "Something went wrong. Please try again." };
+  }
+  revalidatePath(dbBasePath(organizationId, projectId, databaseId));
+  return undefined;
+}
+
+export type ResizeFormState = { error?: string } | undefined;
+
+export async function resizeDatabaseAction(
+  organizationId: string,
+  projectId: string,
+  databaseId: string,
+  _prevState: ResizeFormState,
+  formData: FormData
+): Promise<ResizeFormState> {
+  const client = await getApiClient();
+  try {
+    await client.resizeDatabase(organizationId, projectId, databaseId, {
+      cpu_limit: Number(formData.get("cpu_limit")),
+      ram_limit_mb: Number(formData.get("ram_limit_mb")),
+      storage_limit_gb: Number(formData.get("storage_limit_gb")),
+    });
+  } catch (err) {
+    if (err instanceof ApiError) return { error: err.detail };
+    return { error: "Something went wrong. Please try again." };
+  }
+  revalidatePath(dbBasePath(organizationId, projectId, databaseId));
+  return undefined;
+}

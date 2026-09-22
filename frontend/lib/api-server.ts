@@ -1,5 +1,7 @@
 import "server-only";
 
+import { redirect } from "next/navigation";
+
 import { PlatformClient } from "@eminidatabase/sdk";
 
 import { getSessionToken } from "./session";
@@ -15,5 +17,34 @@ const BACKEND_API_URL = process.env.BACKEND_API_URL ?? "http://127.0.0.1:8000/ap
  * auth checks belong close to what actually needs the data). */
 export async function getApiClient(): Promise<PlatformClient> {
   const token = await getSessionToken();
+  return new PlatformClient(BACKEND_API_URL, token);
+}
+
+function isExpired(token: string): boolean {
+  try {
+    const payload = JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString("utf8")) as {
+      exp?: number;
+    };
+    return typeof payload.exp !== "number" || payload.exp * 1000 < Date.now();
+  } catch {
+    return true;
+  }
+}
+
+/** Same as getApiClient, but redirects to /login when the session is missing
+ * or the JWT's own `exp` claim has already passed. `proxy.ts` runs this same
+ * check ahead of every request to a protected route (including client-side
+ * navigations) and is what actually clears the stale cookie — Server
+ * Components aren't allowed to mutate cookies themselves. This is a cheap
+ * defensive backstop for the rare path that reaches a Server Component
+ * without going through the proxy (e.g. a stale RSC prefetch); a token
+ * rejected by the backend for another reason (a rotated signing secret) still
+ * throws an `ApiError` from the actual API call — that's caught by
+ * `app/dashboard/error.tsx`. */
+export async function requireApiClient(): Promise<PlatformClient> {
+  const token = await getSessionToken();
+  if (!token || isExpired(token)) {
+    redirect("/login");
+  }
   return new PlatformClient(BACKEND_API_URL, token);
 }

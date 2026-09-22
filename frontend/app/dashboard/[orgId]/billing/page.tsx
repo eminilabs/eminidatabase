@@ -1,16 +1,11 @@
 import Link from "next/link";
 
+import { StatusBadge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getApiClient } from "@/lib/api-server";
+import { PageHeader } from "@/components/ui/page-header";
+import { requireApiClient } from "@/lib/api-server";
 
-import { ChangePlanForm } from "./change-plan-form";
-
-const STATUS_STYLES: Record<string, string> = {
-  paid: "bg-green-100 text-green-800",
-  finalized: "bg-amber-100 text-amber-800",
-  draft: "bg-slate-100 text-slate-600",
-  void: "bg-slate-100 text-slate-400",
-};
+import { PricingCards } from "./pricing-cards";
 
 export default async function BillingPage({
   params,
@@ -18,7 +13,7 @@ export default async function BillingPage({
   params: Promise<{ orgId: string }>;
 }) {
   const { orgId } = await params;
-  const client = await getApiClient();
+  const client = await requireApiClient();
   const [subscription, plans, usage, invoices] = await Promise.all([
     client.getSubscription(orgId),
     client.listPlans(),
@@ -28,16 +23,16 @@ export default async function BillingPage({
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-semibold text-slate-900">Billing</h1>
+      <PageHeader
+        title="Billing"
+        action={
+          <a href="#invoices" className="text-sm text-slate-400 hover:text-slate-100 hover:underline">
+            View/Pay invoices
+          </a>
+        }
+      />
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Plan</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ChangePlanForm organizationId={orgId} plans={plans} currentPlanId={subscription.plan_id} />
-        </CardContent>
-      </Card>
+      <PricingCards organizationId={orgId} plans={plans} currentPlanId={subscription.plan_id} />
 
       <Card>
         <CardHeader>
@@ -45,13 +40,13 @@ export default async function BillingPage({
         </CardHeader>
         <CardContent>
           {usage.lines.length === 0 ? (
-            <p className="text-sm text-slate-400">No usage recorded yet this period.</p>
+            <p className="text-sm text-slate-500">No usage recorded yet this period.</p>
           ) : (
-            <ul className="divide-y divide-slate-100 text-sm">
+            <ul className="divide-y divide-slate-800 text-sm">
               {usage.lines.map((line) => (
                 <li key={line.metric} className="flex items-center justify-between py-2">
-                  <span className="text-slate-600">{line.metric}</span>
-                  <span className="font-medium text-slate-900">{line.total}</span>
+                  <span className="text-slate-500">{line.metric}</span>
+                  <span className="font-medium text-slate-100">{line.total}</span>
                 </li>
               ))}
             </ul>
@@ -59,20 +54,20 @@ export default async function BillingPage({
         </CardContent>
       </Card>
 
-      <Card>
+      <Card id="invoices">
         <CardHeader>
           <CardTitle>Invoices</CardTitle>
         </CardHeader>
         <CardContent>
           {invoices.length === 0 ? (
-            <p className="text-sm text-slate-400">No invoices yet.</p>
+            <p className="text-sm text-slate-500">No invoices yet.</p>
           ) : (
-            <ul className="divide-y divide-slate-100 text-sm">
+            <ul className="divide-y divide-slate-800 text-sm">
               {invoices.map((invoice) => (
                 <li key={invoice.id} className="flex items-center justify-between py-2">
                   <Link
                     href={`/dashboard/${orgId}/billing/invoices/${invoice.id}`}
-                    className="text-slate-700 hover:underline"
+                    className="text-slate-300 hover:underline"
                   >
                     {new Date(invoice.period_start).toLocaleDateString()} –{" "}
                     {new Date(invoice.period_end).toLocaleDateString()}
@@ -81,13 +76,7 @@ export default async function BillingPage({
                     <span>
                       {invoice.total_amount} {invoice.currency}
                     </span>
-                    <span
-                      className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                        STATUS_STYLES[invoice.status] ?? "bg-slate-100 text-slate-700"
-                      }`}
-                    >
-                      {invoice.status}
-                    </span>
+                    <StatusBadge status={invoice.status} />
                   </div>
                 </li>
               ))}

@@ -1,0 +1,25 @@
+[Unit]
+Description=eminidatabase Data Plane Agent
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=simple
+User=deploy
+Group=deploy
+WorkingDirectory=/opt/projects/eminidatabase/agent
+EnvironmentFile=/opt/projects/eminidatabase/agent/.env.production
+ExecStart=/opt/projects/eminidatabase/agent/pyroot/bin/python3.12 -m uvicorn app.main:app \
+    --host 0.0.0.0 --port 9443 \
+    --ssl-keyfile /opt/projects/eminidatabase/agent/state/node.key \
+    --ssl-certfile /opt/projects/eminidatabase/agent/state/node.crt \
+    --ssl-ca-certs /opt/projects/eminidatabase/agent/state/ca.crt \
+    --ssl-cert-reqs 2
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

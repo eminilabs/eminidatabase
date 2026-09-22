@@ -33,7 +33,7 @@ export function NotificationsBell() {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="relative rounded-md p-2 text-slate-500 hover:bg-slate-100"
+        className="relative rounded-md p-2 text-slate-400 hover:bg-slate-800"
         aria-label="Notifications"
       >
         <Bell className="h-5 w-5" />
@@ -44,17 +44,17 @@ export function NotificationsBell() {
         )}
       </button>
       {open && (
-        <div className="absolute right-0 z-10 mt-2 w-80 rounded-md border border-slate-200 bg-white shadow-lg">
+        <div className="absolute right-0 z-10 mt-2 w-80 rounded-md border border-slate-800 bg-slate-900 shadow-lg">
           <div className="max-h-96 overflow-y-auto">
             {notifications.length === 0 ? (
-              <p className="px-4 py-6 text-center text-sm text-slate-400">No notifications yet.</p>
+              <p className="px-4 py-6 text-center text-sm text-slate-500">No notifications yet.</p>
             ) : (
               notifications.map((n) => (
                 <button
                   key={n.id}
                   onClick={() => markRead(n.id)}
-                  className={`block w-full border-b border-slate-100 px-4 py-3 text-left text-sm last:border-0 hover:bg-slate-50 ${
-                    n.read_at ? "text-slate-400" : "text-slate-900"
+                  className={`block w-full border-b border-slate-800 px-4 py-3 text-left text-sm last:border-0 hover:bg-slate-800/60 ${
+                    n.read_at ? "text-slate-500" : "text-slate-100"
                   }`}
                 >
                   <p className="font-medium">{n.title}</p>

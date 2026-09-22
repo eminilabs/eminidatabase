@@ -11,10 +11,16 @@ function invoicePath(organizationId: string, invoiceId: string): string {
   return `/dashboard/${organizationId}/billing/invoices/${invoiceId}`;
 }
 
-export async function payManuallyAction(organizationId: string, invoiceId: string): Promise<void> {
+export async function payManuallyAction(organizationId: string, invoiceId: string): Promise<ActionState> {
   const client = await getApiClient();
-  await client.payInvoiceManually(organizationId, invoiceId);
+  try {
+    await client.payInvoiceManually(organizationId, invoiceId);
+  } catch (err) {
+    if (err instanceof ApiError) return { error: err.detail };
+    return { error: "Something went wrong. Please try again." };
+  }
   revalidatePath(invoicePath(organizationId, invoiceId));
+  return undefined;
 }
 
 export async function payWithCryptoAction(

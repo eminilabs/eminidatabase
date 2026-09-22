@@ -35,9 +35,9 @@ function LoginForm() {
         <CardContent className="space-y-4">
           <OAuthButtons />
           <div className="flex items-center gap-3 text-xs text-slate-400">
-            <div className="h-px flex-1 bg-slate-200" />
+            <div className="h-px flex-1 bg-slate-800" />
             or
-            <div className="h-px flex-1 bg-slate-200" />
+            <div className="h-px flex-1 bg-slate-800" />
           </div>
 
           <form action={action} className="space-y-4">
@@ -76,7 +76,7 @@ function LoginForm() {
 
           <p className="text-center text-sm text-slate-500">
             Don&apos;t have an account?{" "}
-            <Link href="/register" className="font-medium text-slate-900 underline">
+            <Link href="/register" className="font-medium text-slate-100 underline">
               Create one
             </Link>
           </p>

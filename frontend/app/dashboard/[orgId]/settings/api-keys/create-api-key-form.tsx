@@ -14,7 +14,7 @@ export function CreateApiKeyForm({ organizationId }: { organizationId: string })
 
   if (state?.created) {
     return (
-      <Alert className="border-amber-200 bg-amber-50 text-amber-900">
+      <Alert className="border-amber-900 bg-amber-950/40 text-amber-300">
         Key <span className="font-mono">{state.created.apiKey}</span> created (shown once, copy it
         now).
       </Alert>

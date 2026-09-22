@@ -5,16 +5,15 @@ import datetime as dt
 import uuid
 from decimal import Decimal
 
-import pyotp
 from httpx import AsyncClient
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 import app.scheduler as scheduler_module
 import app.worker as worker_module
 from app.core.timeutil import as_aware_utc, utcnow
 from app.models.invoice import Invoice, InvoiceStatus
 from app.models.invoice_line_item import InvoiceLineItem
-from app.models.subscription import Subscription
+from app.models.subscription import Subscription, SubscriptionStatus
 from app.models.usage_record import UsageMetric, UsageRecord
 from tests.conftest import TestSessionLocal, register_and_login, register_platform_admin
 from tests.factories import create_region, register_and_activate_node
@@ -74,18 +73,6 @@ async def _setup_org_project_node(
 async def _get_plan_id(client: AsyncClient, headers: dict, name: str) -> str:
     plans = (await client.get("/api/v1/plans", headers=headers)).json()
     return next(p["id"] for p in plans if p["name"] == name)
-
-
-async def _enable_mfa(client: AsyncClient, headers: dict) -> None:
-    enable_resp = await client.post("/api/v1/auth/mfa/enable", headers=headers)
-    assert enable_resp.status_code == 200, enable_resp.text
-    uri = enable_resp.json()["provisioning_uri"]
-    secret = dict(part.split("=") for part in uri.split("?")[1].split("&"))["secret"]
-    code = pyotp.TOTP(secret).now()
-    verify_resp = await client.post(
-        "/api/v1/auth/mfa/verify", json={"otp_code": code}, headers=headers
-    )
-    assert verify_resp.status_code == 204, verify_resp.text
 
 
 async def test_new_organization_gets_free_subscription(client: AsyncClient):
@@ -172,11 +159,6 @@ async def test_owner_can_upgrade_plan_developer_cannot(client: AsyncClient):
     )
     assert forbidden.status_code == 403
 
-    # pro is a paying plan (non-zero base_fee) — the owner needs MFA first
-    # (docs/architecture/04 §4.5, enforced in Phase 11; see the dedicated test
-    # below for the rejection path).
-    await _enable_mfa(client, owner_headers)
-
     allowed = await client.patch(
         f"/api/v1/organizations/{org['id']}/subscription",
         json={"plan_id": pro_plan_id},
@@ -186,38 +168,13 @@ async def test_owner_can_upgrade_plan_developer_cannot(client: AsyncClient):
     assert allowed.json()["plan_id"] == pro_plan_id
 
 
-async def test_upgrading_to_paying_plan_requires_mfa(client: AsyncClient):
-    admin_headers = await register_platform_admin(client, "billadmin6@example.com")
-    owner_headers, org, project, region = await _setup_org_project_node(
-        client, admin_headers, "mfa1"
-    )
-    pro_plan_id = await _get_plan_id(client, owner_headers, "pro")
-
-    without_mfa = await client.patch(
-        f"/api/v1/organizations/{org['id']}/subscription",
-        json={"plan_id": pro_plan_id},
-        headers=owner_headers,
-    )
-    assert without_mfa.status_code == 403, without_mfa.text
-
-    await _enable_mfa(client, owner_headers)
-    with_mfa = await client.patch(
-        f"/api/v1/organizations/{org['id']}/subscription",
-        json={"plan_id": pro_plan_id},
-        headers=owner_headers,
-    )
-    assert with_mfa.status_code == 200, with_mfa.text
-
-
 async def test_meter_usage_records_real_agent_metrics(client: AsyncClient, monkeypatch):
     admin_headers = await register_platform_admin(client, "billadmin4@example.com")
     owner_headers, org, project, region = await _setup_org_project_node(
         client, admin_headers, "meter1"
     )
     # free plan caps max_cpu_total at 1 — upgrade so cpu_limit=2 below is allowed.
-    # pro is a paying plan, so MFA is required first (Phase 11, §4.5).
     pro_plan_id = await _get_plan_id(client, owner_headers, "pro")
-    await _enable_mfa(client, owner_headers)
     upgrade_resp = await client.patch(
         f"/api/v1/organizations/{org['id']}/subscription",
         json={"plan_id": pro_plan_id},
@@ -287,7 +244,6 @@ async def test_invoice_generation_aggregates_usage_and_advances_period(
         client, admin_headers, "invoice1"
     )
     pro_plan_id = await _get_plan_id(client, owner_headers, "pro")
-    await _enable_mfa(client, owner_headers)
     await client.patch(
         f"/api/v1/organizations/{org['id']}/subscription",
         json={"plan_id": pro_plan_id},
@@ -386,6 +342,101 @@ async def test_invoice_generation_aggregates_usage_and_advances_period(
         f"/api/v1/organizations/{org['id']}/invoices/{invoice.id}/pay", headers=owner_headers
     )
     assert second_pay.status_code == 409
+
+
+async def test_unpaid_invoice_suspends_access_then_payment_restores_it(
+    client: AsyncClient, monkeypatch
+):
+    admin_headers = await register_platform_admin(client, "billadmin7@example.com")
+    owner_headers, org, project, region = await _setup_org_project_node(
+        client, admin_headers, "suspend1"
+    )
+    pro_plan_id = await _get_plan_id(client, owner_headers, "pro")
+    await client.patch(
+        f"/api/v1/organizations/{org['id']}/subscription",
+        json={"plan_id": pro_plan_id},
+        headers=owner_headers,
+    )
+
+    monkeypatch.setattr(scheduler_module, "AsyncSessionLocal", TestSessionLocal)
+
+    async with TestSessionLocal() as db:
+        subscription = (
+            await db.execute(
+                select(Subscription).where(Subscription.organization_id == uuid.UUID(org["id"]))
+            )
+        ).scalar_one()
+        subscription_id = subscription.id
+        subscription.current_period_end = utcnow() - dt.timedelta(seconds=1)
+        await db.commit()
+
+    assert await scheduler_module.generate_due_invoices() == 1
+
+    async with TestSessionLocal() as db:
+        subscription = await db.get(Subscription, subscription_id)
+        assert subscription.status == SubscriptionStatus.ACTIVE
+        first_invoice = (
+            await db.execute(select(Invoice).where(Invoice.organization_id == uuid.UUID(org["id"])))
+        ).scalar_one()
+
+    # A single outstanding invoice, not yet overdue, doesn't block anything.
+    still_ok = await client.post(
+        f"/api/v1/organizations/{org['id']}/projects/{project['id']}/databases",
+        json={"name": "still-fine", "region_code": region["code"]},
+        headers=owner_headers,
+    )
+    assert still_ok.status_code == 202, still_ok.text
+
+    # A whole new billing period elapses with the first invoice still unpaid.
+    async with TestSessionLocal() as db:
+        subscription = await db.get(Subscription, subscription_id)
+        subscription.current_period_end = utcnow() - dt.timedelta(seconds=1)
+        await db.commit()
+
+    # Suspended instead of billed further — no second invoice piles on top.
+    assert await scheduler_module.generate_due_invoices() == 0
+
+    async with TestSessionLocal() as db:
+        subscription = await db.get(Subscription, subscription_id)
+        assert subscription.status == SubscriptionStatus.PAST_DUE
+        invoice_count = (
+            await db.execute(
+                select(func.count())
+                .select_from(Invoice)
+                .where(Invoice.organization_id == uuid.UUID(org["id"]))
+            )
+        ).scalar_one()
+        assert invoice_count == 1
+
+    blocked = await client.post(
+        f"/api/v1/organizations/{org['id']}/projects/{project['id']}/databases",
+        json={"name": "blocked-db", "region_code": region["code"]},
+        headers=owner_headers,
+    )
+    assert blocked.status_code == 402, blocked.text
+
+    # Billing/invoices themselves stay reachable — a suspended org must be
+    # able to see and pay its own outstanding invoice.
+    read_invoices = await client.get(
+        f"/api/v1/organizations/{org['id']}/invoices", headers=owner_headers
+    )
+    assert read_invoices.status_code == 200, read_invoices.text
+
+    pay_resp = await client.post(
+        f"/api/v1/organizations/{org['id']}/invoices/{first_invoice.id}/pay", headers=owner_headers
+    )
+    assert pay_resp.status_code == 200, pay_resp.text
+
+    async with TestSessionLocal() as db:
+        subscription = await db.get(Subscription, subscription_id)
+        assert subscription.status == SubscriptionStatus.ACTIVE
+
+    restored = await client.post(
+        f"/api/v1/organizations/{org['id']}/projects/{project['id']}/databases",
+        json={"name": "restored-db", "region_code": region["code"]},
+        headers=owner_headers,
+    )
+    assert restored.status_code == 202, restored.text
 
 
 async def test_platform_admin_only_can_create_plans(client: AsyncClient):

@@ -1,8 +1,8 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { logoutAction } from "@/app/actions/logout";
-import { NotificationsBell } from "@/components/notifications-bell";
+import { Sidebar } from "@/components/shell/sidebar";
+import { Topbar } from "@/components/shell/topbar";
 import { getApiClient } from "@/lib/api-server";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -18,33 +18,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
   }
 
   return (
-    <div className="flex min-h-screen">
-      <aside className="flex w-64 flex-col border-r border-slate-200 bg-white p-4">
-        <Link href="/dashboard" className="mb-6 text-lg font-semibold text-slate-900">
-          eminidatabase
-        </Link>
-        <nav className="flex-1 space-y-1 text-sm text-slate-600">
-          <Link href="/dashboard/settings/security" className="block rounded-md px-3 py-2 hover:bg-slate-100">
-            Security
-          </Link>
-        </nav>
-        <div className="border-t border-slate-100 pt-4">
-          <p className="truncate text-sm text-slate-500">{email}</p>
-          <form action={logoutAction}>
-            <button
-              type="submit"
-              className="mt-2 text-sm text-slate-500 underline hover:text-slate-900"
-            >
-              Sign out
-            </button>
-          </form>
-        </div>
-      </aside>
-      <div className="flex-1">
-        <header className="flex items-center justify-end border-b border-slate-200 bg-white px-6 py-3">
-          <NotificationsBell />
-        </header>
-        <main className="p-6">{children}</main>
+    <div className="flex h-screen overflow-hidden bg-slate-950">
+      <Sidebar />
+      <div className="flex min-w-0 flex-1 flex-col">
+        <Topbar email={email} logoutAction={logoutAction} />
+        <main className="flex-1 overflow-y-auto p-6">{children}</main>
       </div>
     </div>
   );

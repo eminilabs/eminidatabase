@@ -11,6 +11,7 @@ from app.core.security import decode_access_token, verify_node_secret
 from app.db.session import get_db
 from app.models.membership import Membership
 from app.models.node import Node
+from app.models.subscription import Subscription, SubscriptionStatus
 from app.models.user import User
 
 _bearer_scheme = HTTPBearer(auto_error=False)
@@ -67,6 +68,29 @@ async def get_membership(
             detail="Organization not found",
         )
     return membership
+
+
+async def require_active_subscription(
+    organization_id: uuid.UUID, db: AsyncSession = Depends(get_db)
+) -> None:
+    """Blocks database-affecting actions (create, connect, run SQL, manage
+    roles/extensions/backups) once an organization's subscription is
+    PAST_DUE — an unpaid invoice still outstanding when the next billing
+    period started (app/scheduler.py's generate_due_invoices). Read-only
+    endpoints (database:read/observe, billing:read) are deliberately NOT
+    gated by this, so a suspended org can still see its own data and go pay
+    the outstanding invoice to restore access
+    (payment_service._reactivate_if_current)."""
+    subscription = (
+        await db.execute(
+            select(Subscription).where(Subscription.organization_id == organization_id)
+        )
+    ).scalar_one_or_none()
+    if subscription is not None and subscription.status == SubscriptionStatus.PAST_DUE:
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail="This organization has an unpaid invoice. Pay it to restore database access.",
+        )
 
 
 async def get_authenticated_node(

@@ -42,7 +42,7 @@ export function MfaSetup() {
   }
 
   if (success) {
-    return <Alert className="border-green-200 bg-green-50 text-green-800">MFA is now enabled.</Alert>;
+    return <Alert className="border-emerald-900 bg-emerald-950/40 text-emerald-300">MFA is now enabled.</Alert>;
   }
 
   return (
@@ -55,7 +55,7 @@ export function MfaSetup() {
         </Button>
       ) : (
         <div className="space-y-4">
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-slate-500">
             Scan this with your authenticator app, then enter the 6-digit code it shows.
           </p>
           {/* eslint-disable-next-line @next/next/no-img-element -- a locally

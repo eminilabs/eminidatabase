@@ -9,9 +9,9 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantClasses: Record<ButtonVariant, string> = {
-  default: "bg-slate-900 text-white hover:bg-slate-700",
-  outline: "border border-slate-300 bg-white text-slate-900 hover:bg-slate-50",
-  ghost: "text-slate-700 hover:bg-slate-100",
+  default: "bg-white text-slate-900 hover:bg-slate-200",
+  outline: "border border-slate-700 bg-slate-900 text-slate-100 hover:bg-slate-800",
+  ghost: "text-slate-300 hover:bg-slate-800 hover:text-slate-100",
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(

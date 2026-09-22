@@ -1,7 +1,8 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 
 import { createBackupAction } from "./actions";
@@ -16,12 +17,21 @@ export function CreateBackupButton({
   databaseId: string;
 }) {
   const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  function handleClick() {
+    startTransition(async () => {
+      const result = await createBackupAction(organizationId, projectId, databaseId);
+      setError(result?.error ?? null);
+    });
+  }
+
   return (
-    <Button
-      disabled={pending}
-      onClick={() => startTransition(() => createBackupAction(organizationId, projectId, databaseId))}
-    >
-      {pending ? "Starting…" : "Back up now"}
-    </Button>
+    <div>
+      {error && <Alert className="mb-2">{error}</Alert>}
+      <Button disabled={pending} onClick={handleClick}>
+        {pending ? "Starting…" : "Back up now"}
+      </Button>
+    </div>
   );
 }

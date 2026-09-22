@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useTransition } from "react";
+import { useActionState, useState, useTransition } from "react";
 
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,7 @@ const MOBILE_MONEY_OPERATORS = [
 
 export function PayForms({ organizationId, invoiceId }: { organizationId: string; invoiceId: string }) {
   const [manualPending, startManual] = useTransition();
+  const [manualError, setManualError] = useState<string | null>(null);
   const cryptoAction = payWithCryptoAction.bind(null, organizationId, invoiceId);
   const [cryptoState, cryptoFormAction, cryptoPending] = useActionState(cryptoAction, undefined);
   const mobileMoneyAction = payWithMobileMoneyAction.bind(null, organizationId, invoiceId);
@@ -33,17 +34,23 @@ export function PayForms({ organizationId, invoiceId }: { organizationId: string
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="mb-2 text-sm font-semibold text-slate-700">Manual (bank transfer / cash)</h3>
+        <h3 className="mb-2 text-sm font-semibold text-slate-300">Manual (bank transfer / cash)</h3>
+        {manualError && <Alert className="mb-2">{manualError}</Alert>}
         <Button
           disabled={manualPending}
-          onClick={() => startManual(() => payManuallyAction(organizationId, invoiceId))}
+          onClick={() =>
+            startManual(async () => {
+              const result = await payManuallyAction(organizationId, invoiceId);
+              setManualError(result?.error ?? null);
+            })
+          }
         >
           {manualPending ? "Confirming…" : "Confirm payment received"}
         </Button>
       </div>
 
       <div>
-        <h3 className="mb-2 text-sm font-semibold text-slate-700">Crypto (NOWPayments)</h3>
+        <h3 className="mb-2 text-sm font-semibold text-slate-300">Crypto (NOWPayments)</h3>
         <form action={cryptoFormAction} className="flex items-end gap-2">
           {cryptoState?.error && (
             <div className="w-full">
@@ -61,7 +68,7 @@ export function PayForms({ organizationId, invoiceId }: { organizationId: string
       </div>
 
       <div>
-        <h3 className="mb-2 text-sm font-semibold text-slate-700">Mobile money (FedaPay)</h3>
+        <h3 className="mb-2 text-sm font-semibold text-slate-300">Mobile money (FedaPay)</h3>
         <form action={mmFormAction} className="flex flex-wrap items-end gap-2">
           {mmState?.error && (
             <div className="w-full">
@@ -74,7 +81,7 @@ export function PayForms({ organizationId, invoiceId }: { organizationId: string
               id="mode"
               name="mode"
               required
-              className="h-10 w-64 rounded-md border border-slate-300 bg-white px-3 text-sm"
+              className="h-10 w-64 rounded-md border border-slate-700 bg-slate-900 px-3 text-sm"
             >
               {MOBILE_MONEY_OPERATORS.map((op) => (
                 <option key={op.mode} value={op.mode}>

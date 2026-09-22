@@ -31,3 +31,8 @@ async def test_create_and_revoke_api_key(client: AsyncClient):
         f"/api/v1/organizations/{org['id']}/api-keys/{body['id']}", headers=headers
     )
     assert revoke_resp.status_code == 204
+
+    listing_after_revoke = await client.get(
+        f"/api/v1/organizations/{org['id']}/api-keys", headers=headers
+    )
+    assert listing_after_revoke.json() == []

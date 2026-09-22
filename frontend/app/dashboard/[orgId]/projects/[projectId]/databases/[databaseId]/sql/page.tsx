@@ -1,4 +1,5 @@
-import { getApiClient } from "@/lib/api-server";
+import { PageHeader } from "@/components/ui/page-header";
+import { requireApiClient } from "@/lib/api-server";
 
 import { SqlEditor } from "./sql-editor";
 
@@ -8,7 +9,7 @@ export default async function SqlEditorPage({
   params: Promise<{ orgId: string; projectId: string; databaseId: string }>;
 }) {
   const { orgId, projectId, databaseId } = await params;
-  const client = await getApiClient();
+  const client = await requireApiClient();
 
   let tables: Awaited<ReturnType<typeof client.listTables>> = [];
   try {
@@ -24,7 +25,8 @@ export default async function SqlEditorPage({
   ]);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
+      <PageHeader title="SQL Editor" description="Run SQL directly against this database." />
       <SqlEditor
         organizationId={orgId}
         projectId={projectId}
@@ -32,25 +34,8 @@ export default async function SqlEditorPage({
         tables={tables}
         savedQueries={savedQueries}
         roles={roles}
+        history={history}
       />
-
-      <div>
-        <h3 className="mb-2 text-sm font-semibold text-slate-700">Recent queries</h3>
-        {history.length === 0 ? (
-          <p className="text-sm text-slate-400">No queries run yet.</p>
-        ) : (
-          <ul className="divide-y divide-slate-100 text-sm">
-            {history.map((h) => (
-              <li key={h.id} className="flex items-center justify-between gap-4 py-2">
-                <span className="truncate font-mono text-xs text-slate-600">{h.query_text}</span>
-                <span className={h.status === "succeeded" ? "text-green-600" : "text-red-600"}>
-                  {h.status}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
     </div>
   );
 }

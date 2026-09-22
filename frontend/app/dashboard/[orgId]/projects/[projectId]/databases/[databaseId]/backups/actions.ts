@@ -16,10 +16,16 @@ export async function createBackupAction(
   organizationId: string,
   projectId: string,
   databaseId: string
-): Promise<void> {
+): Promise<ActionState> {
   const client = await getApiClient();
-  await client.createBackup(organizationId, projectId, databaseId);
+  try {
+    await client.createBackup(organizationId, projectId, databaseId);
+  } catch (err) {
+    if (err instanceof ApiError) return { error: err.detail };
+    return { error: "Something went wrong. Please try again." };
+  }
   revalidatePath(backupsPath(organizationId, projectId, databaseId));
+  return undefined;
 }
 
 export async function restoreBackupAction(

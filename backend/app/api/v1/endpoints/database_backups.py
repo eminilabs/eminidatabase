@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.dependencies import get_current_user, get_membership
+from app.core.dependencies import get_current_user, get_membership, require_active_subscription
 from app.db.session import get_db
 from app.models.backup import Backup, BackupStatus, BackupType
 from app.models.database import Database, DatabaseStatus
@@ -40,6 +40,7 @@ async def create_backup(
     membership: Membership = Depends(get_membership),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    _subscription_active: None = Depends(require_active_subscription),
 ) -> BackupCreateAccepted:
     require_permission(membership.role, "database:backups:manage")
     await get_project_or_404(db, organization_id, project_id)
@@ -136,6 +137,7 @@ async def restore_backup(
     membership: Membership = Depends(get_membership),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    _subscription_active: None = Depends(require_active_subscription),
 ) -> RestoreAccepted:
     require_permission(membership.role, "database:backups:manage")
     await get_project_or_404(db, organization_id, project_id)
@@ -222,6 +224,7 @@ async def set_backup_policy(
     membership: Membership = Depends(get_membership),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    _subscription_active: None = Depends(require_active_subscription),
 ) -> BackupPolicyUpdate:
     require_permission(membership.role, "database:backups:manage")
     await get_project_or_404(db, organization_id, project_id)

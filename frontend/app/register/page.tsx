@@ -24,9 +24,9 @@ export default function RegisterPage() {
         <CardContent className="space-y-4">
           <OAuthButtons />
           <div className="flex items-center gap-3 text-xs text-slate-400">
-            <div className="h-px flex-1 bg-slate-200" />
+            <div className="h-px flex-1 bg-slate-800" />
             or
-            <div className="h-px flex-1 bg-slate-200" />
+            <div className="h-px flex-1 bg-slate-800" />
           </div>
 
           <form action={action} className="space-y-4">
@@ -53,7 +53,7 @@ export default function RegisterPage() {
 
           <p className="text-center text-sm text-slate-500">
             Already have an account?{" "}
-            <Link href="/login" className="font-medium text-slate-900 underline">
+            <Link href="/login" className="font-medium text-slate-100 underline">
               Sign in
             </Link>
           </p>

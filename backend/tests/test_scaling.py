@@ -90,6 +90,91 @@ async def test_resize_updates_limits(client: AsyncClient, monkeypatch):
     assert calls[0][1] == {"limit": 2 * 20}
 
 
+async def test_suspend_then_resume_round_trip(client: AsyncClient, monkeypatch):
+    owner_headers, org, project, database_id, _ = await _create_running_database(
+        client, monkeypatch, "sr1"
+    )
+
+    suspend_resp = await client.post(
+        f"{_db_url(org, project, database_id)}/suspend", headers=owner_headers
+    )
+    assert suspend_resp.status_code == 200
+    assert suspend_resp.json()["database"]["status"] == "suspending"
+
+    monkeypatch.setattr(worker_module, "AsyncSessionLocal", TestSessionLocal)
+    await worker_module.run_once()
+
+    get_resp = await client.get(_db_url(org, project, database_id), headers=owner_headers)
+    assert get_resp.json()["status"] == "suspended"
+
+    # Resize is only allowed while RUNNING — a suspended database should be
+    # rejected the same way a still-provisioning one is.
+    resize_resp = await client.post(
+        f"{_db_url(org, project, database_id)}/resize",
+        json={"cpu_limit": 2, "ram_limit_mb": 2048, "storage_limit_gb": 20},
+        headers=owner_headers,
+    )
+    assert resize_resp.status_code == 409
+
+    resume_resp = await client.post(
+        f"{_db_url(org, project, database_id)}/resume", headers=owner_headers
+    )
+    assert resume_resp.status_code == 200
+    assert resume_resp.json()["database"]["status"] == "updating"
+
+    await worker_module.run_once()
+
+    get_resp = await client.get(_db_url(org, project, database_id), headers=owner_headers)
+    assert get_resp.json()["status"] == "running"
+
+
+async def test_cannot_suspend_a_database_that_is_not_running(client: AsyncClient, monkeypatch):
+    admin_headers = await register_platform_admin(client, "p7admin9@example.com")
+    owner_headers = await register_and_login(client, "p7owner9@example.com")
+    org = (
+        await client.post(
+            "/api/v1/organizations", json={"name": "ACME", "slug": "acme-p7-9"},
+            headers=owner_headers,
+        )
+    ).json()
+    project = (
+        await client.post(
+            f"/api/v1/organizations/{org['id']}/projects",
+            json={"name": "Shop", "slug": "shop"},
+            headers=owner_headers,
+        )
+    ).json()
+    region = await create_region(client, admin_headers, "eu-p7-9")
+    # No node -> database stays CREATING.
+    create_resp = await client.post(
+        f"/api/v1/organizations/{org['id']}/projects/{project['id']}/databases",
+        json={"name": "production", "region_code": region["code"]},
+        headers=owner_headers,
+    )
+    database_id = create_resp.json()["database"]["id"]
+
+    resp = await client.post(
+        f"{_db_url(org, project, database_id)}/suspend", headers=owner_headers
+    )
+    assert resp.status_code == 409
+
+
+async def test_readonly_cannot_suspend(client: AsyncClient, monkeypatch):
+    owner_headers, org, project, database_id, _ = await _create_running_database(
+        client, monkeypatch, "sr2"
+    )
+    readonly_headers = await register_and_login(client, "p7readonly9@example.com")
+    await client.post(
+        f"/api/v1/organizations/{org['id']}/members",
+        json={"email": "p7readonly9@example.com", "role": "readonly"},
+        headers=owner_headers,
+    )
+    resp = await client.post(
+        f"{_db_url(org, project, database_id)}/suspend", headers=readonly_headers
+    )
+    assert resp.status_code == 403
+
+
 async def test_resize_rejects_when_not_running(client: AsyncClient, monkeypatch):
     admin_headers = await register_platform_admin(client, "p7admin2@example.com")
     owner_headers = await register_and_login(client, "p7owner2@example.com")

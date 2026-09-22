@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.dependencies import get_current_user, get_membership
+from app.core.dependencies import get_current_user, get_membership, require_active_subscription
 from app.core.security import generate_random_password
 from app.db.session import get_db
 from app.models.database import DatabaseStatus
@@ -49,6 +49,7 @@ async def create_role(
     membership: Membership = Depends(get_membership),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    _subscription_active: None = Depends(require_active_subscription),
 ) -> RoleCreated:
     require_permission(membership.role, "database:roles:manage")
     await get_project_or_404(db, organization_id, project_id)
@@ -132,6 +133,7 @@ async def delete_role(
     membership: Membership = Depends(get_membership),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    _subscription_active: None = Depends(require_active_subscription),
 ) -> None:
     require_permission(membership.role, "database:roles:manage")
     await get_project_or_404(db, organization_id, project_id)
@@ -176,6 +178,7 @@ async def rotate_role(
     membership: Membership = Depends(get_membership),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    _subscription_active: None = Depends(require_active_subscription),
 ) -> RoleCreated:
     require_permission(membership.role, "database:roles:manage")
     await get_project_or_404(db, organization_id, project_id)

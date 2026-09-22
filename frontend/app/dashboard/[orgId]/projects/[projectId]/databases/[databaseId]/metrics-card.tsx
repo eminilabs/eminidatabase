@@ -39,18 +39,18 @@ export function MetricsCard({
       </CardHeader>
       <CardContent>
         {error || !data ? (
-          <p className="text-sm text-slate-400">
+          <p className="text-sm text-slate-500">
             Metrics unavailable — the database may not be running.
           </p>
         ) : (
           <div className="grid grid-cols-3 gap-4 text-sm">
             <div>
-              <p className="text-xs uppercase tracking-wide text-slate-400">Size</p>
-              <p className="text-lg font-semibold text-slate-900">{formatBytes(data.size_bytes)}</p>
+              <p className="text-xs uppercase tracking-wide text-slate-500">Size</p>
+              <p className="text-lg font-semibold text-slate-100">{formatBytes(data.size_bytes)}</p>
             </div>
             <div>
-              <p className="text-xs uppercase tracking-wide text-slate-400">Connections</p>
-              <p className="text-lg font-semibold text-slate-900">
+              <p className="text-xs uppercase tracking-wide text-slate-500">Connections</p>
+              <p className="text-lg font-semibold text-slate-100">
                 {data.active_connections} / {data.max_connections}
               </p>
             </div>

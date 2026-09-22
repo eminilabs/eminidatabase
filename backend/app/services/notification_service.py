@@ -166,3 +166,43 @@ async def notify_subscription_changed(
         context={"plan_name": plan_name},
         data={"plan_name": plan_name},
     )
+
+
+async def notify_subscription_suspended(
+    db: AsyncSession,
+    organization_id: uuid.UUID,
+    invoice_id: uuid.UUID,
+    amount: Decimal,
+    currency: str,
+) -> None:
+    owner = await _org_owner(db, organization_id)
+    if owner is None:
+        return
+    await _notify(
+        db,
+        owner,
+        type="subscription_suspended",
+        title="Access suspended — unpaid invoice",
+        body=(
+            f"Invoice {invoice_id} for {amount} {currency} was never paid before your next "
+            "billing period started. Database access is suspended until it's settled."
+        ),
+        template="subscription_suspended.html",
+        context={"invoice_id": invoice_id, "amount": amount, "currency": currency},
+        data={"invoice_id": str(invoice_id)},
+    )
+
+
+async def notify_subscription_reactivated(db: AsyncSession, organization_id: uuid.UUID) -> None:
+    owner = await _org_owner(db, organization_id)
+    if owner is None:
+        return
+    await _notify(
+        db,
+        owner,
+        type="subscription_reactivated",
+        title="Access restored",
+        body="Your outstanding invoice has been paid. Database access has been restored.",
+        template="subscription_reactivated.html",
+        context={},
+    )

@@ -5,7 +5,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.dependencies import get_current_user, get_membership
+from app.core.dependencies import get_current_user, get_membership, require_active_subscription
 from app.db.session import get_db
 from app.models.database import Database, DatabaseStatus
 from app.models.membership import Membership
@@ -63,6 +63,7 @@ async def install_extension(
     membership: Membership = Depends(get_membership),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    _subscription_active: None = Depends(require_active_subscription),
 ) -> dict:
     require_permission(membership.role, "database:extensions:manage")
     await get_project_or_404(db, organization_id, project_id)
@@ -104,6 +105,7 @@ async def drop_extension(
     membership: Membership = Depends(get_membership),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    _subscription_active: None = Depends(require_active_subscription),
 ) -> None:
     require_permission(membership.role, "database:extensions:manage")
     await get_project_or_404(db, organization_id, project_id)

@@ -65,7 +65,7 @@ function OAuthCallbackHandler() {
         {error ? (
           <>
             <Alert>{error}</Alert>
-            <a href="/login" className="text-sm font-medium text-slate-900 underline">
+            <a href="/login" className="text-sm font-medium text-slate-100 underline">
               Back to sign in
             </a>
           </>

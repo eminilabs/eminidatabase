@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.dependencies import get_current_user, get_membership
+from app.core.dependencies import get_current_user, get_membership, require_active_subscription
 from app.db.session import get_db
 from app.models.database import Database, DatabaseStatus
 from app.models.database_credential import CredentialScope, DatabaseCredential
@@ -50,6 +50,7 @@ async def create_database(
     membership: Membership = Depends(get_membership),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    _subscription_active: None = Depends(require_active_subscription),
 ) -> DatabaseCreateAccepted:
     require_permission(membership.role, "database:create")
     await get_project_or_404(db, organization_id, project_id)
@@ -374,8 +375,10 @@ async def get_database_connection(
     organization_id: uuid.UUID,
     project_id: uuid.UUID,
     database_id: uuid.UUID,
+    credential_id: uuid.UUID | None = Query(None),
     membership: Membership = Depends(get_membership),
     db: AsyncSession = Depends(get_db),
+    _subscription_active: None = Depends(require_active_subscription),
 ) -> DatabaseConnectionResponse:
     require_permission(membership.role, "database:connect")
     await get_project_or_404(db, organization_id, project_id)
@@ -387,14 +390,19 @@ async def get_database_connection(
             detail=f"No connection available while database is {database.status.value}",
         )
 
-    credential = (
-        await db.execute(
-            select(DatabaseCredential).where(
-                DatabaseCredential.database_id == database.id,
-                DatabaseCredential.scope == CredentialScope.APP,
+    if credential_id is not None:
+        credential = await db.get(DatabaseCredential, credential_id)
+        if credential is None or str(credential.database_id) != str(database.id):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Role not found")
+    else:
+        credential = (
+            await db.execute(
+                select(DatabaseCredential).where(
+                    DatabaseCredential.database_id == database.id,
+                    DatabaseCredential.scope == CredentialScope.APP,
+                )
             )
-        )
-    ).scalar_one_or_none()
+        ).scalar_one_or_none()
     if credential is None or not database.connection_host:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,

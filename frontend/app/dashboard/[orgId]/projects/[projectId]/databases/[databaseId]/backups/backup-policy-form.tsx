@@ -33,7 +33,7 @@ export function BackupPolicyForm({
       )}
       {state?.success && (
         <div className="w-full">
-          <Alert className="border-green-200 bg-green-50 text-green-800">Policy updated.</Alert>
+          <Alert className="border-emerald-900 bg-emerald-950/40 text-emerald-300">Policy updated.</Alert>
         </div>
       )}
       <label className="flex items-center gap-2 text-sm">

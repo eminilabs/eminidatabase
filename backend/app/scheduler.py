@@ -24,6 +24,7 @@ from app.models.cluster import Cluster, ClusterStatus, ClusterTopology
 from app.models.cluster_event import ClusterEvent
 from app.models.cluster_member import ClusterMember, ClusterMemberRole
 from app.models.database import Database, DatabaseStatus
+from app.models.invoice import Invoice, InvoiceStatus
 from app.models.node import Node
 from app.models.subscription import Subscription, SubscriptionStatus
 from app.models.usage_record import UsageMetric, UsageRecord
@@ -33,7 +34,7 @@ from app.services.billing import compute_invoice_for_subscription
 from app.services.ha_orchestrator import NoHealthyReplicaError, execute_failover
 from app.services.jobs import enqueue
 from app.services.node_health import is_eligible_for_placement
-from app.services.notification_service import notify_invoice_created
+from app.services.notification_service import notify_invoice_created, notify_subscription_suspended
 from app.services.orchestrator import get_primary_node
 
 logging.basicConfig(level=logging.INFO)
@@ -317,7 +318,15 @@ async def meter_usage() -> int:
 async def generate_due_invoices() -> int:
     """cf. app/services/billing.py — one Invoice per subscription whose current
     billing period has ended, computed purely from UsageRecord, never a
-    manually-entered amount."""
+    manually-entered amount.
+
+    Before billing the new period, check whether the *previous* invoice for
+    this subscription was ever paid. If not, the organization gets one full
+    billing period to pay it (no invoice ever goes unnoticed for less than
+    that) — but arriving at the next period boundary still unpaid suspends
+    the subscription instead of piling up more debt on top of it. Paying the
+    outstanding invoice reactivates it automatically
+    (payment_service._reactivate_if_current)."""
     generated = 0
     async with AsyncSessionLocal() as db:
         due = (
@@ -333,6 +342,25 @@ async def generate_due_invoices() -> int:
             .all()
         )
         for subscription in due:
+            unpaid = (
+                await db.execute(
+                    select(Invoice).where(
+                        Invoice.subscription_id == subscription.id,
+                        Invoice.status == InvoiceStatus.FINALIZED,
+                    )
+                )
+            ).scalars().first()
+            if unpaid is not None:
+                subscription.status = SubscriptionStatus.PAST_DUE
+                await notify_subscription_suspended(
+                    db,
+                    subscription.organization_id,
+                    unpaid.id,
+                    unpaid.total_amount,
+                    unpaid.currency,
+                )
+                continue
+
             invoice = await compute_invoice_for_subscription(db, subscription)
             await notify_invoice_created(
                 db,

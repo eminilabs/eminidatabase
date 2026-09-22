@@ -63,7 +63,11 @@ async def list_api_keys(
     db: AsyncSession = Depends(get_db),
 ) -> list[ApiKey]:
     require_permission(membership.role, "api_key:manage")
-    result = await db.execute(select(ApiKey).where(ApiKey.organization_id == organization_id))
+    result = await db.execute(
+        select(ApiKey).where(
+            ApiKey.organization_id == organization_id, ApiKey.revoked_at.is_(None)
+        )
+    )
     return list(result.scalars().all())
 
 

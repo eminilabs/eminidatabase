@@ -31,7 +31,18 @@ export function CreateDatabaseForm({
       )}
       <div>
         <Label htmlFor="name">Name</Label>
-        <Input id="name" name="name" required placeholder="my-database" className="w-48" />
+        <Input
+          id="name"
+          name="name"
+          required
+          placeholder="my-database"
+          pattern="[a-z][a-z0-9\-]{1,62}"
+          minLength={2}
+          maxLength={63}
+          title="Start with a lowercase letter, then lowercase letters, numbers, or hyphens"
+          className="w-48"
+        />
+        <p className="mt-1 text-xs text-slate-500">Lowercase, starts with a letter (e.g. my-database).</p>
       </div>
       <div>
         <Label htmlFor="region_code">Region</Label>
@@ -39,7 +50,7 @@ export function CreateDatabaseForm({
           id="region_code"
           name="region_code"
           required
-          className="flex h-10 w-48 rounded-md border border-slate-300 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+          className="flex h-10 w-48 rounded-md border border-slate-700 bg-slate-900 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
         >
           {regions.map((region) => (
             <option key={region.id} value={region.code}>

@@ -31,7 +31,7 @@ export function AddMemberForm({ organizationId }: { organizationId: string }) {
         <select
           id="role"
           name="role"
-          className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm"
+          className="h-10 rounded-md border border-slate-700 bg-slate-900 px-3 text-sm"
         >
           {ROLES.map((role) => (
             <option key={role} value={role}>

@@ -1,0 +1,23 @@
+# Applies to every `docker build` in this repo, regardless of which
+# Dockerfile's context — keeps build context transfer fast and images clean.
+
+.git
+**/node_modules
+**/.next
+**/.venv
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.ruff_cache
+**/dist
+**/build
+**/test-results
+**/playwright-report
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.production.example
+frontend/e2e
+agent/state
+backend/certs
+**/*.log

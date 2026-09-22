@@ -26,6 +26,7 @@ from app.core.config import get_settings
 from app.core.timeutil import utcnow
 from app.models.invoice import Invoice, InvoiceStatus
 from app.models.payment import Payment, PaymentProviderName, PaymentStatus
+from app.models.subscription import Subscription, SubscriptionStatus
 from app.services import notification_service
 from app.services.payment_providers import fedapay, nowpayments
 from app.services.payments import ManualPaymentProvider
@@ -55,6 +56,34 @@ async def _mark_invoice_paid(
             "currency": invoice.currency,
         },
     )
+    await _reactivate_if_current(db, invoice)
+
+
+async def _reactivate_if_current(db: AsyncSession, invoice: Invoice) -> None:
+    """Paying off the invoice that got an organization suspended
+    (app/scheduler.py's generate_due_invoices, when a new billing period
+    starts with the previous one still unpaid) should restore access as soon
+    as no unpaid invoice remains — not require a platform admin to
+    manually flip the subscription back on."""
+    subscription = await db.get(Subscription, invoice.subscription_id)
+    if subscription is None or subscription.status != SubscriptionStatus.PAST_DUE:
+        return
+    # Sessions here run with autoflush=False (app/db/session.py), so the
+    # in-memory `invoice.status = PAID` set just above isn't visible to this
+    # SELECT yet — exclude this invoice by id explicitly rather than relying
+    # on a flush to have happened first.
+    still_unpaid = (
+        await db.execute(
+            select(Invoice.id).where(
+                Invoice.subscription_id == subscription.id,
+                Invoice.status == InvoiceStatus.FINALIZED,
+                Invoice.id != invoice.id,
+            )
+        )
+    ).first()
+    if still_unpaid is None:
+        subscription.status = SubscriptionStatus.ACTIVE
+        await notification_service.notify_subscription_reactivated(db, invoice.organization_id)
 
 
 async def pay_invoice_manually(db: AsyncSession, invoice: Invoice) -> Invoice:

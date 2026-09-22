@@ -1,5 +1,5 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getApiClient } from "@/lib/api-server";
+import { Card, CardContent } from "@/components/ui/card";
+import { requireApiClient } from "@/lib/api-server";
 
 import { CreateRoleForm } from "./create-role-form";
 import { RoleRowActions } from "./role-row-actions";
@@ -13,22 +13,19 @@ export async function RolesCard({
   projectId: string;
   databaseId: string;
 }) {
-  const client = await getApiClient();
+  const client = await requireApiClient();
   const roles = await client.listRoles(organizationId, projectId, databaseId);
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Roles</CardTitle>
-      </CardHeader>
       <CardContent className="space-y-4">
         <CreateRoleForm organizationId={organizationId} projectId={projectId} databaseId={databaseId} />
-        <ul className="divide-y divide-slate-100 text-sm">
+        <ul className="divide-y divide-slate-800 text-sm">
           {roles.map((role) => (
             <li key={role.id} className="flex items-center justify-between py-2">
               <div>
-                <span className="font-medium text-slate-900">{role.name ?? role.role_name}</span>{" "}
-                <span className="text-slate-400">
+                <span className="font-medium text-slate-100">{role.name ?? role.role_name}</span>{" "}
+                <span className="text-slate-500">
                   ({role.scope}
                   {role.is_primary ? ", primary" : ""})
                 </span>

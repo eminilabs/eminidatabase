@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_user, get_membership
 from app.db.session import get_db
+from app.models.database import Database
 from app.models.membership import Membership
 from app.models.project import Project
 from app.models.user import User
@@ -93,6 +94,28 @@ async def delete_project(
     project = await db.get(Project, project_id)
     if project is None or str(project.organization_id) != str(organization_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+
+    # Databases don't cascade-delete with their project — not even ones already
+    # soft-deleted (status=DELETED). A "deleted" database is a tombstone kept
+    # for audit/billing history (backups, credentials, query history, and
+    # usage_records — the last of these feeds real invoices — all still
+    # reference its row via plain FKs, no ondelete=CASCADE), so hard-deleting
+    # it to unblock the project would risk corrupting historical billing data.
+    # A project can therefore only be removed once it has never had ANY
+    # database, past or present — same shape as the "can't remove the last
+    # owner" guard elsewhere in this API, just permanent once a database has
+    # ever existed here.
+    remaining = await db.execute(select(Database.id).where(Database.project_id == project_id))
+    if remaining.first() is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "This project has database history and can't be deleted. "
+                "Delete any active databases first; a project that has ever "
+                "had a database keeps it for billing/audit history and can't "
+                "be removed."
+            ),
+        )
 
     await db.delete(project)
     await record_audit(

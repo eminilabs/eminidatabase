@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
 
-import { getApiClient } from "@/lib/api-server";
+import { requireApiClient } from "@/lib/api-server";
 
 export default async function DashboardIndexPage() {
-  const client = await getApiClient();
+  const client = await requireApiClient();
   const organizations = await client.listOrganizations();
 
   if (organizations.length === 0) {

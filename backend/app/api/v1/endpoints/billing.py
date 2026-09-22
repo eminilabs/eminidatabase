@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import uuid
-from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
@@ -92,7 +91,6 @@ async def update_subscription(
     organization_id: uuid.UUID,
     payload: SubscriptionUpdate,
     membership: Membership = Depends(get_membership),
-    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> Subscription:
     require_permission(membership.role, "subscription:manage")
@@ -100,18 +98,6 @@ async def update_subscription(
     plan = await db.get(Plan, payload.plan_id)
     if plan is None or not plan.is_active:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Unknown or inactive plan")
-
-    # docs/architecture/04 §4.5: MFA becomes mandatory for the owner/admin of a
-    # paying organization once billing exists (left "to decide in Phase 10" —
-    # Phase 10 shipped billing itself without deciding it; closed here in
-    # Phase 11 instead of leaving it silently undone). "Paying" is defined by
-    # economics (a non-zero base_fee), not by matching a plan name string.
-    is_paying_plan = Decimal(str(plan.pricing.get("base_fee", "0"))) > 0
-    if is_paying_plan and not current_user.mfa_enabled:
-        raise HTTPException(
-            status.HTTP_403_FORBIDDEN,
-            detail="Enable MFA on your account before upgrading to a paying plan",
-        )
 
     subscription.plan_id = plan.id
     await notification_service.notify_subscription_changed(db, organization_id, plan.name)

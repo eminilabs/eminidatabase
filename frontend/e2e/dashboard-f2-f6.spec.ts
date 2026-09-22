@@ -85,12 +85,14 @@ test("Database detail: shell renders with graceful degradation while not running
 }) => {
   await registerAndCreateOrg(page, Date.now() + 4);
 
+  await page.getByRole("button", { name: "New project" }).click();
   await page.getByLabel("Name").fill("F2F6 Project");
   await page.getByLabel("Slug").fill("f2f6-project");
-  await page.getByRole("button", { name: "New project" }).click();
-  await page.getByText("F2F6 Project").click();
+  await page.getByRole("button", { name: "Create project" }).click();
+  await page.getByRole("link", { name: "F2F6 Project" }).click();
   await expect(page).toHaveURL(/\/databases$/);
 
+  await page.getByRole("button", { name: "New database" }).click();
   await page.getByPlaceholder("my-database").fill("f2f6-db");
   await page.getByRole("button", { name: "Create database" }).click();
   await page.getByText("f2f6-db").click();
@@ -100,5 +102,6 @@ test("Database detail: shell renders with graceful degradation while not running
   // The database never reaches `running` without a real agent — metrics/roles/
   // extensions must degrade gracefully rather than crash the page.
   await expect(page.getByRole("heading", { name: "Metrics" })).toBeVisible();
-  await expect(page.getByText("Reveal connection details")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Connect" })).toBeDisabled();
+  await expect(page.getByText("No roles available yet.")).toBeVisible();
 });

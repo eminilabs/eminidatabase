@@ -32,7 +32,7 @@ export function InvoiceStatus({
   const status = invoice?.status ?? initialInvoice.status;
 
   if (status === "paid") {
-    return <Alert className="border-green-200 bg-green-50 text-green-800">Paid.</Alert>;
+    return <Alert className="border-emerald-900 bg-emerald-950/40 text-emerald-300">Paid.</Alert>;
   }
 
   if (status !== "finalized") {

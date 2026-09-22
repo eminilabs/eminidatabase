@@ -1,0 +1,172 @@
+name: eminidatabase
+
+# Production stack for a shared VPS that already runs other projects
+# (eminiAI, eminihub) — fully isolated in its own Docker network/volumes,
+# proxied by the host's existing Apache (see docs/deploy-vps.md), same
+# pattern as eminihub's own docker-compose.prod.yml.
+#
+# The Data Plane Agent (mTLS-authenticated node that actually provisions
+# tenant Postgres databases) deliberately runs NATIVE on the host, not in
+# this compose file — see docs/deploy-vps.md for why (local pg_dump/pg_restore,
+# real host resource visibility for capacity reporting, no Docker-socket
+# exposure). `node-postgres` below is that agent's own backing Postgres
+# server; `internal-network-gateway` is pinned to a fixed IP (172.20.0.1) so
+# the backend container can reach both the native agent's mTLS endpoint and
+# node-postgres directly, at a predictable address.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-eminidatabase_owner}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-eminidatabase}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-eminidatabase_owner} -d ${POSTGRES_DB:-eminidatabase}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [internal]
+
+  # The tenant-database server the native agent manages via plain SQL
+  # (CREATE DATABASE/ROLE, no shell/docker access needed from the agent
+  # itself — see app/postgres_admin.py). Published on both loopback (for the
+  # native agent) and the network's fixed gateway IP (for the backend
+  # container's direct SQL Editor connections, cf. app/services/sql_editor.py)
+  # — never on 0.0.0.0, so it's not reachable from outside either binding.
+  node-postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${NODE_POSTGRES_PASSWORD:?set NODE_POSTGRES_PASSWORD in .env}
+    volumes:
+      - node-postgres-data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5544:5432"
+      - "172.20.0.1:5544:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [internal]
+
+  # Backup storage (S3-compatible) for the native agent — loopback only, the
+  # agent is the only consumer (the backend never touches object storage
+  # directly, cf. app/services/backup_orchestrator.py enqueuing jobs the
+  # agent executes).
+  minio:
+    image: quay.io/minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER in .env}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD in .env}
+    volumes:
+      - minio-data:/data
+    ports:
+      - "127.0.0.1:9010:9000"
+      - "127.0.0.1:9011:9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [internal]
+
+  migrate:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: ["alembic", "upgrade", "head"]
+    env_file: ./backend/.env.production
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [internal]
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file: ./backend/.env.production
+    ports:
+      - "127.0.0.1:8091:8000"
+    volumes:
+      - certs-data:/srv/app/certs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/docs')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [internal]
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: ["python", "-m", "app.worker"]
+    restart: unless-stopped
+    env_file: ./backend/.env.production
+    volumes:
+      - certs-data:/srv/app/certs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    networks: [internal]
+
+  scheduler:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: ["python", "-m", "app.scheduler"]
+    restart: unless-stopped
+    env_file: ./backend/.env.production
+    volumes:
+      - certs-data:/srv/app/certs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    networks: [internal]
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        NEXT_PUBLIC_BACKEND_URL: ${PUBLIC_BACKEND_URL:?set PUBLIC_BACKEND_URL in .env, e.g. https://apidatabase.eminilabs.org}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      BACKEND_API_URL: http://backend:8000/api/v1
+    ports:
+      - "127.0.0.1:3091:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks: [internal]
+
+networks:
+  internal:
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24
+
+volumes:
+  postgres-data:
+  node-postgres-data:
+  minio-data:
+  certs-data:

@@ -19,6 +19,7 @@ export type OrganizationResponse = components["schemas"]["OrganizationResponse"]
 export type ProjectResponse = components["schemas"]["ProjectResponse"];
 export type DatabaseResponse = components["schemas"]["DatabaseResponse"];
 export type DatabaseCreateAccepted = components["schemas"]["DatabaseCreateAccepted"];
+export type DatabaseResize = components["schemas"]["DatabaseResize"];
 export type IsolationLevel = components["schemas"]["IsolationLevel"];
 export type JobResponse = components["schemas"]["JobResponse"];
 export type NotificationResponse = components["schemas"]["NotificationResponse"];
@@ -96,8 +97,30 @@ export class PlatformClient {
     if (!resp.ok) {
       let detail = resp.statusText;
       try {
-        const data = (await resp.json()) as { detail?: string };
-        detail = data.detail ?? detail;
+        const data = (await resp.json()) as { detail?: unknown };
+        // FastAPI's own validation errors (422) send `detail` as an array of
+        // Pydantic error objects (`{type, loc, msg, input}`), not a string —
+        // format them into a readable sentence instead of dumping raw JSON
+        // (or crashing a caller that renders `.detail` directly as a React
+        // child, which is what an un-coerced object/array would do).
+        if (typeof data.detail === "string") {
+          detail = data.detail;
+        } else if (Array.isArray(data.detail)) {
+          detail = data.detail
+            .map((issue) => {
+              if (issue && typeof issue === "object" && "msg" in issue) {
+                const loc = Array.isArray((issue as { loc?: unknown[] }).loc)
+                  ? (issue as { loc: unknown[] }).loc.filter((p) => p !== "body").join(".")
+                  : undefined;
+                const msg = String((issue as { msg: unknown }).msg);
+                return loc ? `${loc}: ${msg}` : msg;
+              }
+              return JSON.stringify(issue);
+            })
+            .join("; ");
+        } else if (data.detail !== undefined) {
+          detail = JSON.stringify(data.detail);
+        }
       } catch {
         // Body wasn't JSON (or was empty) — fall back to statusText above.
       }
@@ -174,6 +197,10 @@ export class PlatformClient {
     return this.request("GET", `/organizations/${organizationId}/projects/${projectId}`);
   }
 
+  async deleteProject(organizationId: string, projectId: string): Promise<void> {
+    return this.request("DELETE", `/organizations/${organizationId}/projects/${projectId}`);
+  }
+
   // --- Databases ------------------------------------------------------
 
   private dbPath(organizationId: string, projectId: string, databaseId = ""): string {
@@ -203,12 +230,48 @@ export class PlatformClient {
     return this.request("GET", this.dbPath(organizationId, projectId));
   }
 
+  async deleteDatabase(
+    organizationId: string,
+    projectId: string,
+    databaseId: string
+  ): Promise<DatabaseCreateAccepted> {
+    return this.request(
+      "DELETE",
+      `${this.dbPath(organizationId, projectId)}/${databaseId}`
+    );
+  }
+
   async getDatabase(
     organizationId: string,
     projectId: string,
     databaseId: string
   ): Promise<DatabaseResponse> {
     return this.request("GET", this.dbPath(organizationId, projectId, databaseId));
+  }
+
+  async suspendDatabase(
+    organizationId: string,
+    projectId: string,
+    databaseId: string
+  ): Promise<DatabaseCreateAccepted> {
+    return this.request("POST", `${this.dbPath(organizationId, projectId, databaseId)}/suspend`);
+  }
+
+  async resumeDatabase(
+    organizationId: string,
+    projectId: string,
+    databaseId: string
+  ): Promise<DatabaseCreateAccepted> {
+    return this.request("POST", `${this.dbPath(organizationId, projectId, databaseId)}/resume`);
+  }
+
+  async resizeDatabase(
+    organizationId: string,
+    projectId: string,
+    databaseId: string,
+    resize: DatabaseResize
+  ): Promise<DatabaseResponse> {
+    return this.request("POST", `${this.dbPath(organizationId, projectId, databaseId)}/resize`, resize);
   }
 
   // --- Jobs -------------------------------------------------------------
@@ -248,9 +311,14 @@ export class PlatformClient {
   async getConnection(
     organizationId: string,
     projectId: string,
-    databaseId: string
+    databaseId: string,
+    credentialId?: string
   ): Promise<DatabaseConnectionResponse> {
-    return this.request("GET", this.dbPath(organizationId, projectId, databaseId) + "/connection");
+    const query = credentialId ? `?credential_id=${encodeURIComponent(credentialId)}` : "";
+    return this.request(
+      "GET",
+      this.dbPath(organizationId, projectId, databaseId) + "/connection" + query
+    );
   }
 
   async getDatabaseMetrics(
@@ -583,7 +651,7 @@ export class PlatformClient {
   async createApiKey(
     organizationId: string,
     name: string,
-    scopes: string[] = []
+    scopes: Record<string, unknown> = {}
   ): Promise<ApiKeyCreated> {
     return this.request("POST", `/organizations/${organizationId}/api-keys`, { name, scopes });
   }

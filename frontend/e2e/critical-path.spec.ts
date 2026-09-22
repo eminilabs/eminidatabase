@@ -25,17 +25,18 @@ test("register, create an organization, create a project, see its empty database
   await page.getByRole("button", { name: "Create organization" }).click();
 
   await expect(page).toHaveURL(/\/dashboard\/[^/]+\/projects$/);
-  await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /'s projects$/ })).toBeVisible();
 
+  await page.getByRole("button", { name: "New project" }).click();
   await page.getByLabel("Name").fill("E2E Project");
   await page.getByLabel("Slug").fill("e2e-project");
-  await page.getByRole("button", { name: "New project" }).click();
+  await page.getByRole("button", { name: "Create project" }).click();
 
   await expect(page.getByText("E2E Project")).toBeVisible();
-  await page.getByText("E2E Project").click();
+  await page.getByRole("link", { name: "E2E Project" }).click();
 
   await expect(page).toHaveURL(/\/databases$/);
-  await expect(page.getByRole("heading", { name: "Databases" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "E2E Project" })).toBeVisible();
   await expect(page.getByText("No databases yet")).toBeVisible();
 });
 
@@ -50,6 +51,7 @@ test("logging out then back in reaches the dashboard again", async ({ page }) =>
   await page.getByRole("button", { name: "Create account" }).click();
   await expect(page).toHaveURL(/\/dashboard/);
 
+  await page.getByRole("button", { name: "Account menu" }).click();
   await page.getByRole("button", { name: "Sign out" }).click();
   await expect(page).toHaveURL(/\/login/);
 
