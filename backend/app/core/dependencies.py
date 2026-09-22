@@ -7,14 +7,51 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.security import decode_access_token, verify_node_secret
+from app.core.security import (
+    decode_access_token,
+    extract_api_key_prefix,
+    verify_api_key,
+    verify_node_secret,
+)
+from app.core.timeutil import utcnow
 from app.db.session import get_db
+from app.models.api_key import ApiKey
 from app.models.membership import Membership
 from app.models.node import Node
 from app.models.subscription import Subscription, SubscriptionStatus
 from app.models.user import User
 
 _bearer_scheme = HTTPBearer(auto_error=False)
+
+
+async def _authenticate_api_key(token: str, db: AsyncSession) -> User:
+    """An API key authenticates AS the user who created it (their current
+    membership/role, not a tier frozen at creation time) — same model as a
+    GitHub personal access token, cf. app/models/api_key.py. Everything
+    downstream (get_membership, require_permission, audit logging) then works
+    unmodified, since this resolves to a real user with a real Membership row."""
+    invalid = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or revoked API key"
+    )
+    prefix = extract_api_key_prefix(token)
+    if prefix is None:
+        raise invalid
+    api_key = (
+        await db.execute(select(ApiKey).where(ApiKey.key_prefix == prefix))
+    ).scalar_one_or_none()
+    if (
+        api_key is None
+        or api_key.revoked_at is not None
+        or api_key.user_id is None
+        or not verify_api_key(token, api_key.key_hash)
+    ):
+        raise invalid
+    user = await db.get(User, api_key.user_id)
+    if user is None:
+        raise invalid
+    api_key.last_used_at = utcnow()
+    await db.commit()
+    return user
 
 
 async def get_current_user(
@@ -25,6 +62,8 @@ async def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing bearer token"
         )
+    if extract_api_key_prefix(credentials.credentials) is not None:
+        return await _authenticate_api_key(credentials.credentials, db)
     user_id = decode_access_token(credentials.credentials)
     if user_id is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")

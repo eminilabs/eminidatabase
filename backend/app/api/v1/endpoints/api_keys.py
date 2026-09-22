@@ -33,6 +33,7 @@ async def create_api_key(
     full_key, prefix, key_hash = generate_api_key()
     api_key = ApiKey(
         organization_id=organization_id,
+        user_id=current_user.id,
         name=payload.name,
         key_prefix=prefix,
         key_hash=key_hash,

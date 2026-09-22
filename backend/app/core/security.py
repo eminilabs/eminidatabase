@@ -93,6 +93,25 @@ def verify_api_key(full_key: str, key_hash: str) -> bool:
         return False
 
 
+_API_KEY_PREFIX_LEN = 8  # secrets.token_hex(4) above
+
+
+def extract_api_key_prefix(full_key: str) -> str | None:
+    """Pulls the lookup prefix out of an `edb_<prefix>_<secret>` key, without
+    needing to split on `_` — `token_urlsafe`'s alphabet can itself contain
+    `_`, so a naive split would break. Returns None if the string isn't
+    shaped like one of our keys at all (so callers can fall back to treating
+    it as a JWT instead of guessing)."""
+    header = "edb_"
+    if not full_key.startswith(header):
+        return None
+    rest = full_key[len(header) :]
+    prefix, sep, secret_part = rest.partition("_")
+    if len(prefix) != _API_KEY_PREFIX_LEN or sep != "_" or not secret_part:
+        return None
+    return prefix
+
+
 def generate_random_password(length: int = 24) -> str:
     return secrets.token_urlsafe(length)
 
