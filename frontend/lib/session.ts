@@ -24,8 +24,9 @@ export async function setSessionToken(token: string): Promise<void> {
     sameSite: "lax",
     path: "/",
     // Mirrors the backend's own JWT lifetime (ACCESS_TOKEN_EXPIRE_MINUTES,
-    // default 30) — no point outliving the token it holds.
-    maxAge: 30 * 60,
+    // 30 days — no refresh-token flow, this single JWT IS the session) — no
+    // point outliving the token it holds.
+    maxAge: 60 * 60 * 24 * 30,
   });
 }
 

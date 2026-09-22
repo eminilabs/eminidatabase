@@ -22,7 +22,7 @@ test("an expired session during a client-side navigation redirects to login inst
   await expect(page).toHaveURL(/projects$/);
 
   // Simulate the token aging out mid-session without a full page reload —
-  // exactly what happens after 30 minutes of real use (ACCESS_TOKEN_EXPIRE_MINUTES).
+  // exactly what happens after 30 days of real use (ACCESS_TOKEN_EXPIRE_MINUTES).
   const expiredJwt =
     "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJmYWtlIiwiZXhwIjoxNzAwMDAwMDAwfQ.invalidsignature";
   await context.addCookies([

@@ -13,7 +13,10 @@ class Settings(BaseSettings):
 
     jwt_secret_key: str = "dev-only-change-me"
     jwt_algorithm: str = "HS256"
-    access_token_expire_minutes: int = 30
+    # 30 days. There's no refresh-token flow — a single long-lived JWT is the
+    # whole session — so this number IS the session length; keep
+    # frontend/lib/session.ts's cookie maxAge equal to it.
+    access_token_expire_minutes: int = 60 * 24 * 30
 
     # Fernet key encrypting database credentials at rest (cf. Règle 15 — no plaintext
     # secrets). Dev-only default below; override in any real deployment, exactly like

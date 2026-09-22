@@ -14,7 +14,9 @@ import type { NextRequest } from "next/server";
  * on a soft navigation. Without this, a token that ages out mid-session
  * (ACCESS_TOKEN_EXPIRE_MINUTES, 30 min) would only be caught the next time a
  * page happens to call the backend and get a 401, which throws instead of
- * redirecting anywhere near the user's actual navigation.
+ * redirecting anywhere near the user's actual navigation. (ACCESS_TOKEN_EXPIRE_MINUTES
+ * is 30 days — there's no refresh-token flow, so this single JWT IS the
+ * session; do not shorten it without adding one.)
  */
 const SESSION_COOKIE = "eminidb_session";
 const PROTECTED_PREFIX = "/dashboard";
