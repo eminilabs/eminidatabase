@@ -44,7 +44,11 @@ function isExpired(token: string): boolean {
 export async function requireApiClient(): Promise<PlatformClient> {
   const token = await getSessionToken();
   if (!token || isExpired(token)) {
-    redirect("/login");
+    // Route through a handler that clears the cookie first (a Server
+    // Component can't do that itself) — redirecting straight to /login
+    // would leave a cookie proxy.ts still considers unexpired in place,
+    // bouncing this same request right back here in a loop.
+    redirect("/api/auth/invalidate-session");
   }
   return new PlatformClient(BACKEND_API_URL, token);
 }

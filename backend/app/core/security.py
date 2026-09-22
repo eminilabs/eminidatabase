@@ -34,31 +34,38 @@ def verify_password(plain_password: str, password_hash: str) -> bool:
 
 @dataclass(frozen=True)
 class TokenPayload:
-    sub: str  # user_id
-    exp: dt.datetime
+    user_id: uuid.UUID
+    token_version: int
 
 
-def create_access_token(user_id: uuid.UUID) -> str:
+def create_access_token(user_id: uuid.UUID, token_version: int) -> str:
     settings = get_settings()
     expire = dt.datetime.now(dt.UTC) + dt.timedelta(
         minutes=settings.access_token_expire_minutes
     )
-    payload = {"sub": str(user_id), "exp": expire}
+    payload = {"sub": str(user_id), "ver": token_version, "exp": expire}
     return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
 
 
-def decode_access_token(token: str) -> uuid.UUID | None:
+def decode_access_token(token: str) -> TokenPayload | None:
+    """Returns None for any malformed/expired/mis-signed token — callers don't
+    distinguish why, just that the caller must re-authenticate. `ver` is
+    checked against the user's current `token_version` by the caller (cf.
+    app/core/dependencies.py), not here — that needs a DB lookup this
+    function deliberately doesn't do, so a revoked token still decodes fine,
+    it just won't match."""
     settings = get_settings()
     try:
         payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
     except jwt.PyJWTError:
         return None
-    sub = payload.get("sub")
-    if sub is None:
+    ver = payload.get("ver")
+    user_id_raw = payload.get("sub")
+    if user_id_raw is None or ver is None:
         return None
     try:
-        return uuid.UUID(sub)
-    except ValueError:
+        return TokenPayload(user_id=uuid.UUID(user_id_raw), token_version=int(ver))
+    except (ValueError, TypeError):
         return None
 
 

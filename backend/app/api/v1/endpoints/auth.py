@@ -103,7 +103,7 @@ async def login(
     )
     await db.commit()
 
-    return TokenResponse(access_token=create_access_token(user.id))
+    return TokenResponse(access_token=create_access_token(user.id, user.token_version))
 
 
 @router.get("/oauth/{provider}/login", response_model=None)
@@ -158,13 +158,35 @@ async def oauth_callback(
     )
     await db.commit()
 
-    token = create_access_token(user.id)
+    token = create_access_token(user.id, user.token_version)
     return RedirectResponse(f"{frontend_base}/auth/callback#access_token={token}")
 
 
 @router.get("/me", response_model=MeResponse)
 async def me(current_user: User = Depends(get_current_user)) -> User:
     return current_user
+
+
+@router.post("/sessions/revoke-all", status_code=status.HTTP_204_NO_CONTENT, response_model=None)
+async def revoke_all_sessions(
+    current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
+) -> None:
+    """Invalidates every JWT issued to this user so far, including the one
+    used to call this endpoint — every previously issued token carries the
+    `token_version` it was signed with (cf. app/core/security.py), and
+    get_current_user rejects any token whose version no longer matches the
+    user's current one. No per-session table to track: "sign out everywhere"
+    is just this one increment. Does not touch API keys, which are revoked
+    individually and don't carry a token_version at all."""
+    current_user.token_version += 1
+    await record_audit(
+        db,
+        action="ALL_SESSIONS_REVOKED",
+        resource_type="user",
+        resource_id=current_user.id,
+        user_id=current_user.id,
+    )
+    await db.commit()
 
 
 @router.post("/mfa/enable", response_model=MfaEnableResponse)

@@ -11,10 +11,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
   try {
     email = (await client.me()).email;
   } catch {
-    // The proxy's cookie-presence check passed, but the token itself is
-    // invalid/expired against the backend — the backend is the authoritative
-    // check, this is where that gets enforced.
-    redirect("/login");
+    // The proxy's local exp-only check passed, but the backend rejects the
+    // token anyway (revoked via /auth/sessions/revoke-all, most commonly) —
+    // the backend is the authoritative check, this is where that gets
+    // enforced. Redirect through a route handler that clears the cookie
+    // first (a Server Component can't do that itself) — otherwise proxy.ts
+    // still sees a not-yet-expired cookie on the very next request and
+    // bounces straight back here, looping against /login forever.
+    redirect("/api/auth/invalidate-session");
   }
 
   return (

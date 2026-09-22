@@ -3,7 +3,7 @@ from __future__ import annotations
 import datetime as dt
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, DateTime, String
+from sqlalchemy import Boolean, DateTime, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
@@ -28,6 +28,12 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     is_platform_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     last_login_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+
+    # Bumped by /auth/sessions/revoke-all to invalidate every previously
+    # issued JWT at once (they carry the version at issuance time in their
+    # `ver` claim, cf. app/core/security.py) — no per-token session table to
+    # maintain, "sign out everywhere" is just incrementing one integer.
+    token_version: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     memberships: Mapped[list[Membership]] = relationship(
         back_populates="user", cascade="all, delete-orphan"

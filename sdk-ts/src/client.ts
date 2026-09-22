@@ -159,6 +159,10 @@ export class PlatformClient {
     return this.request("POST", "/auth/mfa/verify", { otp_code: otpCode });
   }
 
+  async revokeAllSessions(): Promise<void> {
+    return this.request("POST", "/auth/sessions/revoke-all");
+  }
+
   // --- Organizations ----------------------------------------------------
 
   async createOrganization(name: string, slug: string): Promise<OrganizationResponse> {

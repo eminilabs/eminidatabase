@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireApiClient } from "@/lib/api-server";
 
 import { MfaSetup } from "./mfa-setup";
+import { RevokeSessionsButton } from "./revoke-sessions-button";
 
 export default async function SecuritySettingsPage() {
   const client = await requireApiClient();
@@ -23,6 +24,19 @@ export default async function SecuritySettingsPage() {
           ) : (
             <MfaSetup />
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Sessions</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <p className="text-sm text-slate-500">
+            Sessions stay signed in for 30 days. If you think your account may be
+            compromised, end every session at once.
+          </p>
+          <RevokeSessionsButton />
         </CardContent>
       </Card>
     </div>

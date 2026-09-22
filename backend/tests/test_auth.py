@@ -60,6 +60,42 @@ async def test_me_returns_current_user(client: AsyncClient):
     assert resp.json()["email"] == "erin@example.com"
 
 
+async def test_revoke_all_sessions_invalidates_every_existing_token(client: AsyncClient):
+    await client.post(
+        "/api/v1/auth/register",
+        json={"email": "grace@example.com", "password": "correct-horse-battery"},
+    )
+    login1 = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "grace@example.com", "password": "correct-horse-battery"},
+    )
+    login2 = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "grace@example.com", "password": "correct-horse-battery"},
+    )
+    token1 = {"Authorization": f"Bearer {login1.json()['access_token']}"}
+    token2 = {"Authorization": f"Bearer {login2.json()['access_token']}"}
+
+    # Both tokens (e.g. two devices) work before revocation.
+    assert (await client.get("/api/v1/auth/me", headers=token1)).status_code == 200
+    assert (await client.get("/api/v1/auth/me", headers=token2)).status_code == 200
+
+    # Revoking via token1 invalidates BOTH — including the one used to call it.
+    revoke_resp = await client.post("/api/v1/auth/sessions/revoke-all", headers=token1)
+    assert revoke_resp.status_code == 204
+
+    assert (await client.get("/api/v1/auth/me", headers=token1)).status_code == 401
+    assert (await client.get("/api/v1/auth/me", headers=token2)).status_code == 401
+
+    # A fresh login issues a token that works again.
+    login3 = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "grace@example.com", "password": "correct-horse-battery"},
+    )
+    token3 = {"Authorization": f"Bearer {login3.json()['access_token']}"}
+    assert (await client.get("/api/v1/auth/me", headers=token3)).status_code == 200
+
+
 async def test_mfa_enable_then_login_requires_otp(client: AsyncClient):
     headers = await register_and_login(client, "frank@example.com")
 

@@ -64,12 +64,18 @@ async def get_current_user(
         )
     if extract_api_key_prefix(credentials.credentials) is not None:
         return await _authenticate_api_key(credentials.credentials, db)
-    user_id = decode_access_token(credentials.credentials)
-    if user_id is None:
+    decoded = decode_access_token(credentials.credentials)
+    if decoded is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
-    user = await db.get(User, user_id)
+    user = await db.get(User, decoded.user_id)
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+    if user.token_version != decoded.token_version:
+        # Signed and not expired, but /auth/sessions/revoke-all moved on since
+        # this one was issued — the security-relevant case, not a bug path.
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Session has been revoked"
+        )
     return user
 
 
