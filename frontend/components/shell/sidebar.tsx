@@ -101,6 +101,12 @@ export function Sidebar() {
             active={pathname.startsWith(`/dashboard/${orgId}/projects`)}
           />
           <NavItem
+            href={`/dashboard/${orgId}/databases`}
+            icon={DatabaseIcon}
+            label="Databases"
+            active={pathname.startsWith(`/dashboard/${orgId}/databases`)}
+          />
+          <NavItem
             href={`/dashboard/${orgId}/billing`}
             icon={CreditCard}
             label="Billing"

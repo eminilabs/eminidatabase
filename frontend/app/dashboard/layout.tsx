@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { logoutAction } from "@/app/actions/logout";
+import { MobileTabBar } from "@/components/shell/mobile-tab-bar";
 import { Sidebar } from "@/components/shell/sidebar";
 import { Topbar } from "@/components/shell/topbar";
 import { getApiClient } from "@/lib/api-server";
@@ -23,11 +24,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-950">
-      <Sidebar />
+      <div className="hidden md:flex">
+        <Sidebar />
+      </div>
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar email={email} logoutAction={logoutAction} />
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+        <main className="flex-1 overflow-y-auto p-6 pb-20 md:pb-6">{children}</main>
       </div>
+      <MobileTabBar />
     </div>
   );
 }

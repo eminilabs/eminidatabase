@@ -30,6 +30,9 @@ COPY frontend ./frontend
 # `environment:` entry has no effect on already-compiled browser JS.
 ARG NEXT_PUBLIC_BACKEND_URL
 ENV NEXT_PUBLIC_BACKEND_URL=$NEXT_PUBLIC_BACKEND_URL
+# Tells frontend/next.config.ts to turn on `output: "standalone"` — only
+# meaningful for this Docker build, never for local `next dev`/`next start`.
+ENV DOCKER_BUILD=1
 RUN npm run build --workspace=frontend
 
 FROM node:20-slim AS runner
